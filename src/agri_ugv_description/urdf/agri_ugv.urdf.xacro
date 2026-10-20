@@ -212,6 +212,7 @@
   <xacro:wheel prefix="rear_right"  x="${-wheelbase/2}" y="${-track/2}"/>
 
   <xacro:include filename="$(find agri_ugv_description)/urdf/agri_ugv.gazebo.xacro"/>
+  <xacro:include filename="$(find agri_ugv_description)/urdf/agri_ugv.sensors.xacro"/>
 
 </robot>
 

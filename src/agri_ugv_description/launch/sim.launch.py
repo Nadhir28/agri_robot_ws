@@ -5,6 +5,8 @@ Arguments:
   world:=empty_flat|olive_orchard|<path.sdf>   Default: empty_flat
   headless:=true|false   run the Gazebo server only (no GUI). Default false.
   rviz:=true|false       also start RViz. Default false.
+  camera:=true|false     simulate the front camera (rendering, ~RAM). Default true.
+  lidar:=true|false      simulate the 2D LiDAR. Default true.
   x, y, z, yaw           spawn pose. Default: the selected world's safe spawn
                          pose (see WORLDS below; 0 0 0.05 0 for a custom path).
 """
@@ -62,13 +64,19 @@ def _gazebo_and_spawn(context):
 
 def generate_launch_description():
     xacro_file = os.path.join(PKG, 'urdf', 'agri_ugv.urdf.xacro')
-    robot_description = ParameterValue(Command(['xacro ', xacro_file]), value_type=str)
+    robot_description = ParameterValue(
+        Command(['xacro ', xacro_file,
+                 ' enable_camera:=', LaunchConfiguration('camera'),
+                 ' enable_lidar:=', LaunchConfiguration('lidar')]),
+        value_type=str)
 
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value='empty_flat',
                               description='empty_flat, olive_orchard, or a path to an .sdf file'),
         DeclareLaunchArgument('headless', default_value='false'),
         DeclareLaunchArgument('rviz', default_value='false'),
+        DeclareLaunchArgument('camera', default_value='true'),
+        DeclareLaunchArgument('lidar', default_value='true'),
         DeclareLaunchArgument('x', default_value=''),
         DeclareLaunchArgument('y', default_value=''),
         DeclareLaunchArgument('z', default_value=''),

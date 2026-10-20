@@ -19,7 +19,8 @@ ros2 launch agri_ugv_description sim.launch.py
 ros2 launch agri_ugv_description sim.launch.py world:=olive_orchard
 # Headless (server only, lower CPU/RAM). Works with either world.
 ros2 launch agri_ugv_description sim.launch.py world:=olive_orchard headless:=true
-# Optional: rviz:=true, custom spawn pose x:= y:= z:= yaw:=, or world:=/path/to/file.sdf
+# Optional: rviz:=true, camera:=false / lidar:=false (save CPU/RAM),
+#           custom spawn pose x:= y:= z:= yaw:=, or world:=/path/to/file.sdf
 
 # Drive with the keyboard (second terminal, after `source install/setup.bash`)
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
@@ -27,6 +28,11 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 # Automated tests (simulation for that world must be running)
 ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
 ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
+ros2 run agri_ugv_description sensor_test.py    # orchard world, 13 sensor checks
+
+# Look at the sensors
+ros2 run rqt_image_view rqt_image_view /camera/image_raw
+ros2 topic echo /gps/fix
 
 # Inspect the model in RViz only
 ros2 launch agri_ugv_description display.launch.py
@@ -115,7 +121,35 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | `/tf` | odom → base_footprint | Gazebo → ROS |
 | `/joint_states` | sensor_msgs/JointState (wheels and tyre springs) | Gazebo → ROS |
 | `/ground_truth/odom` | nav_msgs/Odometry (true pose in `world`) | Gazebo → ROS |
+| `/imu` | sensor_msgs/Imu, 100 Hz, frame `imu_link` | Gazebo → ROS |
+| `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link` | Gazebo → ROS |
+| `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link` | Gazebo → ROS |
+| `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
 | `/clock` | rosgraph_msgs/Clock | Gazebo → ROS |
+
+## Sensors (`urdf/agri_ugv.sensors.xacro`, Phase 3)
+
+All sensor values are **[A]** assumptions typical of a Husky research setup.
+The sensor links have no mass, so the robot is still 80 kg.
+
+| Sensor | Position (from ground, robot centre) | Settings |
+|---|---|---|
+| IMU | top plate centre, z = 0.39 m | 100 Hz, gyro noise 0.002 rad/s, accel noise 0.02 m/s², orientation in ENU |
+| GPS (NavSat) | 0.28 m behind centre, z = 0.39 m | 10 Hz, horizontal noise 0.3 m (SBAS-class; set `gps_noise_m` to 0.02 for RTK), vertical 0.5 m |
+| 2D LiDAR (`gpu_lidar`) | on a mast 0.20 m ahead of centre, z = 0.52 m | 360°, 720 beams (0.5°), 0.2–20 m, 10 Hz, 1 cm noise. The scan plane passes under the canopy and hits the trunks |
+| RGB camera | front edge of the top plate, z = 0.42 m, tilted 5.7° down | 640 × 480, 80° FOV, 15 Hz |
+
+- **GPS origin:** both worlds use the same origin, an olive-growing area near
+  Sfax, Tunisia: 34.74° N, 10.76° E, 20 m elevation, ENU (x = east, y = north).
+- **Switches:** `camera:=false` and `lidar:=false` remove those sensors.
+- **GPS noise units:** Gazebo applies NavSat horizontal noise to
+  latitude/longitude **in degrees**, so the xacro converts metres to degrees.
+- **Camera QoS:** subscribe to `/camera/image_raw` with **reliable** QoS.
+  Best-effort subscribers dropped about 57 % of the 0.9 MB frames here
+  (4.3 Hz received of 10 Hz published). `config/view.rviz` uses reliable.
+
+Example output from the orchard (robot 6 m into the path between rows 2 and 3):
+`docs/phase3_camera_view.png` and `docs/phase3_lidar_scan.png`.
 
 ## Olive orchard world (`worlds/olive_orchard.sdf`)
 
@@ -145,10 +179,32 @@ spawn metadata used by the test) and `models/{orchard_terrain,olive_tree_a,olive
 If you change the spawn point, also update `WORLDS` in `launch/sim.launch.py`.
 The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PATH`.
 
-## Test results (2026-10-15)
+## Test results
 
 Tests run headless on sim time and are measured against Gazebo's ground-truth
 pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
+
+### Sensors: `sensor_test.py` (orchard), **13/13 passed** (2026-10-21)
+
+| Check | Result |
+|---|---|
+| All topics publishing | imu, gps, scan, camera |
+| Rates (sim time) | IMU 100.0 Hz, GPS 10.0 Hz, LiDAR 10.0 Hz, camera 15.2 Hz |
+| IMU at rest | gravity 9.79 m/s², yaw matches ground truth (0.00°) |
+| IMU while spinning | 0.766 rad/s measured vs 0.765 true |
+| GPS at spawn (31 fixes averaged) | 0.07 m from the true antenna position |
+| GPS while driving 3.00 m | moved 3.08 m |
+| LiDAR vs known trunk positions | 14 trunks matched, median range error 0.009 m. Max 11.8 m = a trunk hidden behind a nearer one, which is correct |
+| LiDAR self-hits | none (closest return 5.87 m) |
+| Camera | 640 × 480 rgb8, non-blank image (pixel std 56) |
+
+Failures found and fixed on the way:
+1. GPS was off by 3.3 km, because the noise was given in metres but Gazebo reads degrees.
+2. The camera seemed to run at 4–8 Hz. It was publishing at full rate, but the
+   test's best-effort subscription dropped frames; now it subscribes reliably.
+
+After adding the sensors, the flat test (20/20) and the orchard test (11/11)
+were re-run with the same results as below.
 
 ### Flat world: `motion_test.py`, **20/20 passed**
 
@@ -192,6 +248,9 @@ texture, paths) has not been visually verified.** Please check it yourself in
 the Gazebo window.
 
 ## Known limitations
+
+- Sensor rendering (LiDAR + camera) raises the Gazebo server to about 490 MB
+  in the orchard. Use `camera:=false` when the camera is not needed.
 
 - **Rotation on uneven ground** reaches about 90 % of the commanded angle
   (81° for 90°) with about 0.1 m drift, because skid-steer slip varies with

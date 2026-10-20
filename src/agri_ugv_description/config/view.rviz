@@ -26,6 +26,21 @@ Visualization Manager:
       Topic:
         Value: /odom
       Keep: 50
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Enabled: true
+      Topic:
+        Value: /scan
+        Reliability Policy: Best Effort
+      Size (m): 0.05
+      Color Transformer: FlatColor
+      Color: 255; 0; 0
+    - Class: rviz_default_plugins/Image
+      Name: Camera
+      Enabled: true
+      Topic:
+        Value: /camera/image_raw
+        Reliability Policy: Reliable
   Global Options:
     Fixed Frame: odom
   Views:

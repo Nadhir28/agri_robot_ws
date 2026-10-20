@@ -282,6 +282,22 @@ def main():
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
     <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <!-- sensors: rendering-based (lidar, camera), IMU and GPS -->
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat"/>
+
+    <!-- GPS origin: olive-growing region near Sfax, Tunisia [A] -->
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>34.74</latitude_deg>
+      <longitude_deg>10.76</longitude_deg>
+      <elevation>20.0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
 
     <gravity>0 0 -9.81</gravity>
 

@@ -1,0 +1,198 @@
+<?xml version="1.0"?>
+<!--
+  agri_ugv sensors (Gazebo Sim Harmonic). All values are [A] assumptions
+  typical of a Husky research configuration.
+
+  Sensor links have no <inertial>, so they add no mass (robot stays 80 kg);
+  they are lumped into base_link by the URDF->SDF conversion.
+
+  Frames:  imu_link, gps_link, lidar_link, camera_link (x forward),
+           camera_optical_frame (z forward, x right: ROS optical convention).
+  Topics:  /imu, /gps/fix, /scan, /camera/image_raw, /camera/camera_info
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="enable_camera" default="true"/>
+  <xacro:arg name="enable_lidar"  default="true"/>
+
+  <!-- top surface of the top plate, in base_link coordinates -->
+  <xacro:property name="plate_top_z" value="${overall_height - axle_z}"/>
+
+  <!-- ===================== IMU ===================== -->
+  <link name="imu_link">
+    <visual>
+      <geometry><box size="0.04 0.04 0.02"/></geometry>
+      <material name="dark_grey"/>
+    </visual>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 ${plate_top_z + 0.01}"/>
+  </joint>
+
+  <xacro:macro name="imu_noise" params="stddev">
+    <noise type="gaussian"><mean>0.0</mean><stddev>${stddev}</stddev></noise>
+  </xacro:macro>
+
+  <gazebo reference="imu_link">
+    <sensor name="imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <topic>imu</topic>
+      <gz_frame_id>imu_link</gz_frame_id>
+      <imu>
+        <orientation_reference_frame><localization>ENU</localization></orientation_reference_frame>
+        <angular_velocity>
+          <x><xacro:imu_noise stddev="0.002"/></x>
+          <y><xacro:imu_noise stddev="0.002"/></y>
+          <z><xacro:imu_noise stddev="0.002"/></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><xacro:imu_noise stddev="0.02"/></x>
+          <y><xacro:imu_noise stddev="0.02"/></y>
+          <z><xacro:imu_noise stddev="0.02"/></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+  <!-- ===================== GPS (NavSat) ===================== -->
+  <xacro:property name="gps_noise_m" value="0.3"/>  <!-- horizontal 1-sigma, metres -->
+  <link name="gps_link">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.02"/></geometry>
+      <material name="dark_grey"/>
+    </visual>
+  </link>
+  <joint name="gps_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="gps_link"/>
+    <origin xyz="-0.28 0 ${plate_top_z + 0.01}"/>
+  </joint>
+
+  <gazebo reference="gps_link">
+    <sensor name="gps" type="navsat">
+      <always_on>true</always_on>
+      <update_rate>10</update_rate>
+      <topic>gps/fix</topic>
+      <gz_frame_id>gps_link</gz_frame_id>
+      <navsat>
+        <!-- Gazebo applies horizontal noise to latitude/longitude in DEGREES:
+             ${gps_noise_m} m / 111320 m-per-degree. 0.3 m = SBAS-class receiver;
+             use ~0.02 m for RTK. Vertical noise is in metres. -->
+        <position_sensing>
+          <horizontal><noise type="gaussian"><mean>0.0</mean><stddev>${gps_noise_m / 111320.0}</stddev></noise></horizontal>
+          <vertical><noise type="gaussian"><mean>0.0</mean><stddev>0.5</stddev></noise></vertical>
+        </position_sensing>
+      </navsat>
+    </sensor>
+  </gazebo>
+
+  <!-- ===================== 2D LiDAR on a short mast ===================== -->
+  <xacro:if value="$(arg enable_lidar)">
+    <link name="lidar_mast">
+      <visual>
+        <origin xyz="0 0 0.05"/>
+        <geometry><cylinder radius="0.02" length="0.10"/></geometry>
+        <material name="dark_grey"/>
+      </visual>
+    </link>
+    <joint name="lidar_mast_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="lidar_mast"/>
+      <origin xyz="0.20 0 ${plate_top_z}"/>
+    </joint>
+
+    <link name="lidar_link">
+      <visual>
+        <geometry><cylinder radius="0.04" length="0.07"/></geometry>
+        <material name="tyre_black"/>
+      </visual>
+    </link>
+    <!-- scan plane ~0.52 m above ground: sees trunks, passes under the canopy -->
+    <joint name="lidar_joint" type="fixed">
+      <parent link="lidar_mast"/>
+      <child link="lidar_link"/>
+      <origin xyz="0 0 0.135"/>
+    </joint>
+
+    <gazebo reference="lidar_link">
+      <sensor name="lidar" type="gpu_lidar">
+        <always_on>true</always_on>
+        <update_rate>10</update_rate>
+        <topic>scan</topic>
+        <gz_frame_id>lidar_link</gz_frame_id>
+        <visualize>false</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>720</samples>
+              <resolution>1</resolution>
+              <min_angle>${-pi}</min_angle>
+              <max_angle>${pi - 2*pi/720}</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.20</min>
+            <max>20.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
+        </lidar>
+      </sensor>
+    </gazebo>
+  </xacro:if>
+
+  <!-- ===================== Front RGB camera ===================== -->
+  <xacro:if value="$(arg enable_camera)">
+    <link name="camera_link">
+      <visual>
+        <origin xyz="-0.02 0 0"/>
+        <geometry><box size="0.04 0.10 0.04"/></geometry>
+        <material name="dark_grey"/>
+      </visual>
+    </link>
+    <joint name="camera_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="camera_link"/>
+      <origin xyz="${plate_length/2 - 0.02} 0 ${plate_top_z + 0.04}" rpy="0 0.10 0"/>
+    </joint>
+
+    <link name="camera_optical_frame"/>
+    <joint name="camera_optical_joint" type="fixed">
+      <parent link="camera_link"/>
+      <child link="camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+
+    <gazebo reference="camera_link">
+      <sensor name="camera" type="camera">
+        <always_on>true</always_on>
+        <!-- Subscribe with RELIABLE QoS: ~0.9 MB frames are mostly dropped
+             by best-effort subscribers on this setup (measured 4.3 of 10 Hz). -->
+        <update_rate>15</update_rate>
+        <topic>camera/image_raw</topic>
+        <gz_frame_id>camera_optical_frame</gz_frame_id>
+        <camera>
+          <camera_info_topic>camera/camera_info</camera_info_topic>
+          <horizontal_fov>1.396</horizontal_fov>  <!-- 80 deg -->
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip><near>0.05</near><far>60.0</far></clip>
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:if>
+
+</robot>
