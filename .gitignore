@@ -1,0 +1,12 @@
+# colcon build output
+build/
+install/
+log/
+
+# editor backups
+*.save
+*~
+__pycache__/
+
+# Clearpath reference screenshots (third-party marketing images, kept locally only)
+docs/Pasted image*.png

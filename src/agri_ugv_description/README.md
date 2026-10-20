@@ -1,0 +1,209 @@
+# agri_ugv_description
+
+A 4-wheel skid-steer UGV inspired by the Clearpath Husky A300, for
+**ROS 2 Jazzy + Gazebo Sim 8 (Harmonic)** on Ubuntu 24.04. It comes with two
+worlds: a flat test world (`empty_flat`) and an olive orchard (`olive_orchard`).
+The model is based on `docs/Pasted image.png` (tech-spec drawing) and
+`docs/Pasted image (2).png` (render).
+
+## Quick start
+
+```bash
+cd ~/agri_robot_ws
+colcon build --symlink-install
+source install/setup.bash
+
+# Flat test world (default), with Gazebo GUI
+ros2 launch agri_ugv_description sim.launch.py
+# Olive orchard world
+ros2 launch agri_ugv_description sim.launch.py world:=olive_orchard
+# Headless (server only, lower CPU/RAM). Works with either world.
+ros2 launch agri_ugv_description sim.launch.py world:=olive_orchard headless:=true
+# Optional: rviz:=true, custom spawn pose x:= y:= z:= yaw:=, or world:=/path/to/file.sdf
+
+# Drive with the keyboard (second terminal, after `source install/setup.bash`)
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+# Automated tests (simulation for that world must be running)
+ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
+ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
+
+# Inspect the model in RViz only
+ros2 launch agri_ugv_description display.launch.py
+```
+
+**Run only one simulation at a time** in the same ROS domain. Two simulations
+share `/cmd_vel` and `/clock`, so a teleop or test would drive both robots.
+To run a second, isolated one, export different values in that terminal first:
+`export ROS_DOMAIN_ID=77 GZ_PARTITION=agri_test`.
+
+`~/.bashrc` also sources `~/ros2_ws`. This package uses a unique name, so the
+two do not conflict.
+
+## Robot dimensions
+
+Tags: **[D]** printed on the reference drawing, **[E]** estimated by measuring
+pixels against the printed dimensions, **[A]** assumption (not in the references).
+
+| Parameter | Value | Tag |
+|---|---|---|
+| Overall length (bumper to bumper) | 0.990 m | D |
+| Overall width (outside of wheels) | 0.698 m | D (model: track + wheel width = 0.699 m) |
+| Overall height (top plate) | 0.381 m | D |
+| Top plate length | 0.740 m | D |
+| Chassis width | 0.420 m | D |
+| Ground clearance | 0.139 m | D |
+| Bumper underside height | 0.160 m | D |
+| Total mass | 80 kg | D |
+| Max speed | 2.0 m/s | D |
+| Wheel radius / width | 0.165 m / 0.114 m | E |
+| Wheelbase / track | 0.512 m / 0.585 m | E |
+| Chassis body length | 0.700 m | E |
+| Mass split | wheels 4 × 2.6 kg, tyre-spring carriers 4 × 0.3 kg, bumpers 2 × 0.8 kg, chassis 66.8 kg | A |
+| Tyre compliance | 25 000 N/m, 600 N·s/m per wheel, ±25 mm travel (about 7 mm static deflection) | A |
+| Tyre friction μ / μ2 | 1.0 / 1.0 | A |
+| Wheel effort / velocity limit | 100 N·m / 15 rad/s | A |
+| Max angular velocity | 2.0 rad/s | A |
+| Linear / angular acceleration limit | 1.0 m/s² / 3.0 rad/s² | A |
+| Skid-steer separation multiplier | 1.55 | tuned in simulation |
+
+All of these are xacro properties at the top of `urdf/agri_ugv.urdf.xacro`
+and `urdf/agri_ugv.gazebo.xacro`.
+
+## Model structure
+
+- Frames follow REP-103 (x forward, y left, z up).
+- `base_footprint` is on the ground. `base_link` is at axle height (0.165 m).
+- `base_link` holds the yellow body, black top plate, e-stop and box collision.
+  The front and rear bumpers are fixed links.
+- Each wheel hangs from a short **tyre-compliance prismatic joint**
+  (`*_tyre_spring_joint`, axis Z). It has a spring and damper, and its preload
+  keeps it at 0 under static load, so ride height is unchanged. These were added
+  in Phase 2, for the reason given below.
+- Four `continuous` wheel joints (`*_wheel_joint`) with axis **+Y**, so a
+  positive joint velocity drives the robot forward.
+- Visuals and collisions are simple primitives (boxes and cylinders), not CAD meshes.
+
+### Why the tyre springs
+
+Gazebo's DART physics engine treats contacts as rigid and ignores `kp`/`kd`.
+On uneven ground, a rigid 4-wheel chassis therefore rests on 3 wheels. The
+orchard terrain has about 3 mm of twist under the footprint, and that was
+enough to lift a wheel. Rotation in place reached only 63–73° of a commanded
+90°, with 0.26–0.41 m drift. On the flat spawn pad of the same terrain it was
+accurate. The springs model pneumatic tyre deflection. With them, rotation on
+the uneven path improved to about 81° with about 0.11 m drift. Softer springs
+(12 000 N/m) were tried and gave no further gain.
+
+## Drive system
+
+Gazebo's built-in `gz::sim::systems::DiffDrive` runs in skid-steer mode, with
+two `left_joint` and two `right_joint` entries. ros2_control is not used,
+because `gz_ros2_control` and `controller_manager` are not installed.
+
+A skid-steer vehicle slides its wheels sideways when it turns. With the
+geometric track (0.585 m), the robot only turned 232.6° for a commanded 360°.
+The DiffDrive `wheel_separation` is therefore `track × 1.55 = 0.907 m`, the same
+idea as the Husky driver's `wheel_separation_multiplier`.
+
+### ROS interface (via `ros_gz_bridge`, `config/ros_gz_bridge.yaml`)
+
+| Topic | Type | Direction |
+|---|---|---|
+| `/cmd_vel` | geometry_msgs/Twist | ROS → Gazebo |
+| `/odom` | nav_msgs/Odometry (wheel odometry, `odom` → `base_footprint`) | Gazebo → ROS |
+| `/tf` | odom → base_footprint | Gazebo → ROS |
+| `/joint_states` | sensor_msgs/JointState (wheels and tyre springs) | Gazebo → ROS |
+| `/ground_truth/odom` | nav_msgs/Odometry (true pose in `world`) | Gazebo → ROS |
+| `/clock` | rosgraph_msgs/Clock | Gazebo → ROS |
+
+## Olive orchard world (`worlds/olive_orchard.sdf`)
+
+| Feature | Value |
+|---|---|
+| Layout | 5 rows × 8 trees (40 trees), rows along x |
+| Spacing | 6 m between rows, 5 m between trees (intensive olive orchard), ±0.15 m planting jitter |
+| Paths | bare-dirt paths between rows, about 2.5–2.8 m clear between canopies, with faint wheel ruts. Headlands extend about 14 m past the last trees (4 m dirt, then grass) |
+| Tree | trunk 0.9–1.2 m, 3 scaffold branches, ellipsoid canopy about 3.4 m wide and 3.5 m tall. 2 variants with random yaw |
+| Tree collision | trunk cylinder only. The canopy starts about 1.5 m up, above the 0.38 m robot |
+| Terrain | 64 × 64 m heightmap (129 × 129 px, 0.5 m/px). Gentle undulation plus 6 cm berms under the rows. Height range 0.307 m, max slope 3.5° |
+| Ground texture | one 1024 × 1024 image over the whole terrain: dirt paths, weedy strips under rows, grass outside |
+| Robot spawn | x = −23.0, y = −3.0, z = 0.155, yaw = 0. On a flattened pad at the headland, at the entrance of the path between rows 2 and 3, facing down the path. 5.4 m from the nearest trunk |
+| Weight | static primitives only, no meshes. Measured RAM: about 340 MB server, about 580 MB GUI |
+
+The world and models are generated by `scripts/generate_orchard.py`
+(deterministic, seed 7). To change the layout, edit the constants at the top
+of that script, run it, and rebuild:
+
+```bash
+cd ~/agri_robot_ws/src/agri_ugv_description && python3 scripts/generate_orchard.py
+cd ~/agri_robot_ws && colcon build --symlink-install
+```
+
+It writes `worlds/olive_orchard.sdf`, `worlds/olive_orchard.json` (layout and
+spawn metadata used by the test) and `models/{orchard_terrain,olive_tree_a,olive_tree_b}`.
+If you change the spawn point, also update `WORLDS` in `launch/sim.launch.py`.
+The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PATH`.
+
+## Test results (2026-10-15)
+
+Tests run headless on sim time and are measured against Gazebo's ground-truth
+pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
+
+### Flat world: `motion_test.py`, **20/20 passed**
+
+Re-run after the tyre springs were added (a shared robot file changed):
+
+| Test | Command | Result | Pass criterion |
+|---|---|---|---|
+| Rest on ground | – | z = −0.002 m | abs(z) < 0.02 m |
+| Forward | 0.5 m/s × 4 s | +1.846 m, lateral 0.000 m, yaw 0.0° | 1.875 m ± 10 %, straight |
+| Stop | 0 | v = 0.000 m/s | abs(v) < 0.02 |
+| Backward | −0.5 m/s × 4 s | −1.870 m, straight | −1.875 m ± 10 % |
+| Arc left / right | 0.5 m/s, ±0.5 rad/s × 4 s | +109.4° / −112.6° | ±112.2° ± 15 % |
+| Spin in place left / right | ±1.0 rad/s, one turn | +350.9° / −350.7°, drift ≤ 0.002 m | ±360° ± 10 % |
+| Max speed | 2.0 m/s | 2.000 m/s, braking distance 2.009 m | 2.0 ± 0.1 m/s |
+
+Phase 1 results without the springs were also 20/20: arcs ±101–103°, spins
+±356–357°.
+
+### Orchard world: `orchard_test.py`, **11/11 passed**
+
+| Check | Result | Pass criterion |
+|---|---|---|
+| Spawned at safe pose | (−23.000, −3.000), 5.43 m trunk clearance | within 0.10 m of spawn |
+| Resting level and still | roll 0.00°, pitch 0.00°, v = w = 0 | tilt < 5° |
+| On terrain surface | z = 0.103 m, heightmap 0.105 m | abs(error) < 0.04 m |
+| `/cmd_vel` forward 0.5 m/s × 16 s along path | 7.852 m (expected 7.875) | ± 10 % |
+| Stays on path, clear of trunks | lateral deviation 0.000 m, min clearance 2.20 m | < 0.40 m, > 0 |
+| Follows uneven terrain | traversed 0.105–0.149 m terrain, max abs(z − heightmap) 0.003 m, max tilt 1.0° | < 0.05 m, < 8° |
+| Stop | v = w = 0.000 | < 0.02 |
+| Rotate in place +90° / −90° (0.5 rad/s) | +81.0° / −81.2°, drift 0.11 m | ±90° ± 15 %, drift < 0.15 m |
+| `/cmd_vel` reverse 0.5 m/s × 4 s | −1.999 m | < −1.6 m |
+| Stop after reverse | v = 0.000 | < 0.02 |
+
+**Failure found and fixed:** before the tyre springs, the orchard test was
+10/11. Rotation left reached +76.4° against a required ≥ 76.5°, with 0.148 m drift.
+
+**Gazebo GUI:** the orchard world was launched with the GUI. Server and GUI
+processes started, the log showed no errors, the robot was at the spawn pose
+and the real-time factor was about 0.6. **The rendering (trees, terrain
+texture, paths) has not been visually verified.** Please check it yourself in
+the Gazebo window.
+
+## Known limitations
+
+- **Rotation on uneven ground** reaches about 90 % of the commanded angle
+  (81° for 90°) with about 0.1 m drift, because skid-steer slip varies with
+  uneven wheel loads. Wheel odometry (`/odom`) still reports the full
+  commanded angle. Use ground truth, an IMU or closed-loop heading control
+  for accurate turns.
+- **Arc turns** on flat ground are within 3 % after the spring change.
+  Instantaneous yaw rate during spins oscillates (stick-slip); the average is correct.
+- Only one friction value (μ = 1.0) is used for all ground. Dirt, grass and
+  wet soil are not distinguished.
+- Ground-texture orientation is computed but not visually verified. The
+  row/path strips run along x and are symmetric about y = 0, so a mirrored
+  texture would still look the same.
+- With the GUI on this 4-core machine, the real-time factor is about 0.6.
+  Use `headless:=true` (plus `rviz:=true` if needed) for faster runs.

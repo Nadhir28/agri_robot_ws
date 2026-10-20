@@ -1,0 +1,280 @@
+{
+ "seed": 7,
+ "terrain_size": 64.0,
+ "heightmap_resolution": 129,
+ "height_range": 0.3069,
+ "heightmap": "models/orchard_terrain/materials/textures/heightmap.png",
+ "row_y": [
+  -12.0,
+  -6.0,
+  0.0,
+  6.0,
+  12.0
+ ],
+ "path_y": [
+  -9.0,
+  -3.0,
+  3.0,
+  9.0
+ ],
+ "tree_x": [
+  -17.5,
+  -12.5,
+  -7.5,
+  -2.5,
+  2.5,
+  7.5,
+  12.5,
+  17.5
+ ],
+ "row_spacing": 6.0,
+ "tree_spacing": 5.0,
+ "spawn": {
+  "x": -23.0,
+  "y": -3.0,
+  "z": 0.155,
+  "yaw": 0.0
+ },
+ "trees": [
+  {
+   "name": "olive_r1_t1",
+   "x": -17.58,
+   "y": -11.934,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r1_t2",
+   "x": -12.564,
+   "y": -11.945,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r1_t3",
+   "x": -7.477,
+   "y": -11.923,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r1_t4",
+   "x": -2.612,
+   "y": -11.922,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r1_t5",
+   "x": 2.641,
+   "y": -12.127,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r1_t6",
+   "x": 7.595,
+   "y": -12.049,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r1_t7",
+   "x": 12.583,
+   "y": -12.074,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r1_t8",
+   "x": 17.462,
+   "y": -11.946,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r2_t1",
+   "x": -17.383,
+   "y": -5.962,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r2_t2",
+   "x": -12.525,
+   "y": -5.95,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r2_t3",
+   "x": -7.422,
+   "y": -6.024,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r2_t4",
+   "x": -2.527,
+   "y": -6.107,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r2_t5",
+   "x": 2.582,
+   "y": -6.012,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r2_t6",
+   "x": 7.369,
+   "y": -5.863,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r2_t7",
+   "x": 12.586,
+   "y": -5.968,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r2_t8",
+   "x": 17.38,
+   "y": -6.1,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r3_t1",
+   "x": -17.6,
+   "y": 0.018,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r3_t2",
+   "x": -12.457,
+   "y": 0.09,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r3_t3",
+   "x": -7.548,
+   "y": 0.125,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r3_t4",
+   "x": -2.551,
+   "y": 0.144,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r3_t5",
+   "x": 2.577,
+   "y": 0.062,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r3_t6",
+   "x": 7.598,
+   "y": -0.091,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r3_t7",
+   "x": 12.428,
+   "y": 0.058,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r3_t8",
+   "x": 17.573,
+   "y": -0.136,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t1",
+   "x": -17.593,
+   "y": 5.949,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t2",
+   "x": -12.497,
+   "y": 5.934,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t3",
+   "x": -7.379,
+   "y": 5.928,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t4",
+   "x": -2.447,
+   "y": 6.007,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t5",
+   "x": 2.53,
+   "y": 5.857,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t6",
+   "x": 7.4,
+   "y": 6.079,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r4_t7",
+   "x": 12.564,
+   "y": 6.126,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r4_t8",
+   "x": 17.592,
+   "y": 6.074,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r5_t1",
+   "x": -17.503,
+   "y": 12.116,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r5_t2",
+   "x": -12.501,
+   "y": 12.115,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r5_t3",
+   "x": -7.433,
+   "y": 12.038,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r5_t4",
+   "x": -2.488,
+   "y": 12.091,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r5_t5",
+   "x": 2.402,
+   "y": 12.041,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r5_t6",
+   "x": 7.485,
+   "y": 11.956,
+   "trunk_radius": 0.16
+  },
+  {
+   "name": "olive_r5_t7",
+   "x": 12.639,
+   "y": 11.954,
+   "trunk_radius": 0.148
+  },
+  {
+   "name": "olive_r5_t8",
+   "x": 17.628,
+   "y": 11.947,
+   "trunk_radius": 0.148
+  }
+ ]
+}
