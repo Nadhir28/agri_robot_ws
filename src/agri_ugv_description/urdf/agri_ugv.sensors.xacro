@@ -8,7 +8,8 @@
 
   Frames:  imu_link, gps_link, lidar_link, camera_link (x forward),
            camera_optical_frame (z forward, x right: ROS optical convention).
-  Topics:  /imu, /gps/fix, /scan, /camera/image_raw, /camera/camera_info
+  Topics:  /imu, /gps/fix, /points (3D LiDAR), /scan (derived 2D),
+           /camera/image_raw, /camera/camera_info
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -89,12 +90,19 @@
     </sensor>
   </gazebo>
 
-  <!-- ===================== 2D LiDAR on a short mast ===================== -->
+  <!-- ===================== 3D LiDAR (VLP-16 class) on a mast ===================== -->
+  <!-- 16 rings from -15 to +15 deg (2 deg apart), 900 points per ring (0.4 deg),
+       10 Hz, 0.4-100 m, +-3 cm noise: Velodyne VLP-16 datasheet values.
+       Gazebo topics: /lidar (multi-ring scan, not bridged) and /lidar/points
+       (bridged to ROS /points, sensor_msgs/PointCloud2).
+       A 2D /scan is derived from the near-horizontal points by cloud_to_scan.py. -->
+  <xacro:property name="lidar_mast_len" value="0.25"/>
+  <xacro:property name="lidar_body_h"   value="0.072"/>
   <xacro:if value="$(arg enable_lidar)">
     <link name="lidar_mast">
       <visual>
-        <origin xyz="0 0 0.05"/>
-        <geometry><cylinder radius="0.02" length="0.10"/></geometry>
+        <origin xyz="0 0 ${lidar_mast_len/2}"/>
+        <geometry><cylinder radius="0.02" length="${lidar_mast_len}"/></geometry>
         <material name="dark_grey"/>
       </visual>
     </link>
@@ -106,45 +114,46 @@
 
     <link name="lidar_link">
       <visual>
-        <geometry><cylinder radius="0.04" length="0.07"/></geometry>
-        <material name="tyre_black"/>
+        <geometry><cylinder radius="0.0515" length="${lidar_body_h}"/></geometry>
+        <material name="hub_grey"/>
       </visual>
     </link>
-    <!-- scan plane ~0.52 m above ground: sees trunks, passes under the canopy -->
+    <!-- optical centre ~0.67 m above ground. High enough that the -15 deg ring
+         clears the top plate, GPS puck and camera (no self-hits). -->
     <joint name="lidar_joint" type="fixed">
       <parent link="lidar_mast"/>
       <child link="lidar_link"/>
-      <origin xyz="0 0 0.135"/>
+      <origin xyz="0 0 ${lidar_mast_len + lidar_body_h/2}"/>
     </joint>
 
     <gazebo reference="lidar_link">
       <sensor name="lidar" type="gpu_lidar">
         <always_on>true</always_on>
         <update_rate>10</update_rate>
-        <topic>scan</topic>
+        <topic>lidar</topic>
         <gz_frame_id>lidar_link</gz_frame_id>
         <visualize>false</visualize>
         <lidar>
           <scan>
             <horizontal>
-              <samples>720</samples>
+              <samples>900</samples>
               <resolution>1</resolution>
               <min_angle>${-pi}</min_angle>
-              <max_angle>${pi - 2*pi/720}</max_angle>
+              <max_angle>${pi - 2*pi/900}</max_angle>
             </horizontal>
             <vertical>
-              <samples>1</samples>
+              <samples>16</samples>
               <resolution>1</resolution>
-              <min_angle>0</min_angle>
-              <max_angle>0</max_angle>
+              <min_angle>${radians(-15)}</min_angle>
+              <max_angle>${radians(15)}</max_angle>
             </vertical>
           </scan>
           <range>
-            <min>0.20</min>
-            <max>20.0</max>
+            <min>0.40</min>
+            <max>100.0</max>
             <resolution>0.01</resolution>
           </range>
-          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.01</stddev></noise>
+          <noise><type>gaussian</type><mean>0.0</mean><stddev>0.03</stddev></noise>
         </lidar>
       </sensor>
     </gazebo>

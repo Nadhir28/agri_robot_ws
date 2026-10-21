@@ -5,7 +5,8 @@ Checks (against Gazebo ground truth and the known orchard layout):
   - every sensor publishes at its configured rate (measured on sim time)
   - IMU: gravity at rest, yaw rate during a spin matches ground truth
   - GPS: fix near the world origin's lat/lon; moves with the robot
-  - LiDAR: ranges to the visible olive trunks match their known positions
+  - 3D LiDAR: 16x900 cloud; sees ground at the right height, canopies above
+    the trunks, no self-hits; derived /scan matches the known trunk positions
   - camera: correct size/encoding, image not blank
 
 Run with the simulation up:
@@ -27,11 +28,14 @@ from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
-from sensor_msgs.msg import Image, Imu, LaserScan, NavSatFix
+from sensor_msgs.msg import Image, Imu, LaserScan, NavSatFix, PointCloud2
+from sensor_msgs_py import point_cloud2
 
 # Must match agri_ugv.sensors.xacro and the world <spherical_coordinates>
-RATES = {'imu': 100.0, 'gps': 10.0, 'scan': 10.0, 'camera': 15.0}
+RATES = {'imu': 100.0, 'gps': 10.0, 'points': 10.0, 'scan': 10.0, 'camera': 15.0}
 LIDAR_XYZ = (0.20, 0.0)          # lidar position in base_link (x, y)
+LIDAR_HEIGHT = 0.381 + 0.25 + 0.036   # optical centre above ground: plate + mast + half body
+LIDAR_RINGS, LIDAR_COLS = 16, 900
 ORIGIN_LAT, ORIGIN_LON = 34.74, 10.76
 EARTH_R = 6378137.0
 
@@ -56,6 +60,7 @@ class SensorTest(Node):
         self.create_subscription(Imu, '/imu', self.on_imu, qos)
         self.create_subscription(NavSatFix, '/gps/fix', lambda m: self._store('gps', m), qos)
         self.create_subscription(LaserScan, '/scan', lambda m: self._store('scan', m), qos)
+        self.create_subscription(PointCloud2, '/points', lambda m: self._store('points', m), qos)
         # images: RELIABLE, best-effort drops most ~0.9 MB frames
         self.create_subscription(Image, '/camera/image_raw', lambda m: self._store('camera', m),
                                  QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE))
@@ -96,11 +101,11 @@ class SensorTest(Node):
         start = time.monotonic()
         while rclpy.ok() and time.monotonic() - start < 60:
             rclpy.spin_once(self, timeout_sec=0.1)
-            if all(k in self.last for k in ('gt', 'imu', 'gps', 'scan', 'camera')) and self.now() > 0:
+            if all(k in self.last for k in ('gt', 'imu', 'gps', 'points', 'scan', 'camera')) and self.now() > 0:
                 break
-        missing = [k for k in ('gt', 'imu', 'gps', 'scan', 'camera') if k not in self.last]
+        missing = [k for k in ('gt', 'imu', 'gps', 'points', 'scan', 'camera') if k not in self.last]
         self.check('all sensor topics publishing', not missing,
-                   'imu, gps, scan, camera received' if not missing else f'missing: {missing}')
+                   'imu, gps, points, scan, camera received' if not missing else f'missing: {missing}')
         if missing:
             return False
 
@@ -142,7 +147,42 @@ class SensorTest(Node):
                    f'({gx:.2f}, {gy:.2f}) m, true ({gt.x:.2f}, {gt.y:.2f}), error {err:.2f} m '
                    f'({len(fixes)} fixes averaged)')
 
-        # ---- LiDAR vs known trunk positions (robot at rest at spawn)
+        # ---- 3D LiDAR point cloud (robot at rest on the flat spawn pad)
+        cloud = self.last['points']
+        names = [f.name for f in cloud.fields]
+        self.check('3d lidar cloud layout',
+                   cloud.height == LIDAR_RINGS and cloud.width == LIDAR_COLS and 'ring' in names,
+                   f'{cloud.height} rings x {cloud.width} points, fields {names}, '
+                   f'frame {cloud.header.frame_id}')
+        pts = point_cloud2.read_points_numpy(cloud, field_names=('x', 'y', 'z'), skip_nans=True)
+        pts = pts[np.isfinite(pts).all(axis=1)]
+        rng = np.linalg.norm(pts, axis=1)
+        self.check('3d lidar does not see the robot itself', rng.min() > 1.0,
+                   f'{len(pts)} valid points, closest {rng.min():.2f} m '
+                   f'(lowest ring meets the ground at ~{LIDAR_HEIGHT / math.tan(math.radians(15)):.1f} m)')
+        horiz = np.hypot(pts[:, 0], pts[:, 1])
+        ground = pts[(horiz < 3.5) & (pts[:, 2] < -0.3)]
+        gz = float(np.median(ground[:, 2])) if len(ground) else float('nan')
+        self.check('3d lidar sees the ground at the right height',
+                   len(ground) > 200 and abs(gz + LIDAR_HEIGHT) < 0.05,
+                   f'{len(ground)} ground points within 3.5 m, median {gz:+.3f} m below sensor '
+                   f'(expected {-LIDAR_HEIGHT:+.3f})')
+        # canopy: points well above the trunks (> ~1.5 m above ground), near a known tree
+        high = pts[pts[:, 2] > 0.85]
+        c, s_ = math.cos(gt_yaw), math.sin(gt_yaw)
+        lx0 = gt.x + LIDAR_XYZ[0] * c
+        ly0 = gt.y + LIDAR_XYZ[0] * s_
+        wx = lx0 + c * high[:, 0] - s_ * high[:, 1]
+        wy = ly0 + s_ * high[:, 0] + c * high[:, 1]
+        trees = np.array([[t['x'], t['y']] for t in self.meta['trees']])
+        near = np.min(np.hypot(wx[:, None] - trees[None, :, 0], wy[:, None] - trees[None, :, 1]), axis=1) \
+            if len(high) else np.array([])
+        frac = float(np.mean(near < 2.0)) if len(near) else 0.0
+        self.check('3d lidar sees olive canopies above the trunks', len(high) > 100 and frac > 0.95,
+                   f'{len(high)} points > {LIDAR_HEIGHT + 0.85:.2f} m above ground, '
+                   f'{frac * 100:.1f} % within 2 m of a known tree')
+
+        # ---- derived 2D /scan vs known trunk positions
         scan = self.last['scan']
         x0, y0 = gt.x, gt.y
         lx = x0 + LIDAR_XYZ[0] * math.cos(gt_yaw)
@@ -164,11 +204,11 @@ class SensorTest(Node):
                 hits += 1
         visible = len(errors)
         med = float(np.median(errors)) if errors else float('inf')
-        self.check('lidar sees trunks at known positions', hits >= 5 and med < 0.10,
+        self.check('/scan (from 3d cloud) sees trunks at known positions', hits >= 5 and med < 0.10,
                    f'{hits} trunks in range matched, median range error {med:.3f} m, '
                    f'max {max(errors) if errors else float("nan"):.3f} m')
         finite = [r for r in scan.ranges if math.isfinite(r) and r < scan.range_max]
-        self.check('lidar does not see the robot itself', min(finite) > 0.5 if finite else False,
+        self.check('/scan has no self-hits', min(finite) > 0.5 if finite else False,
                    f'closest return {min(finite):.2f} m' if finite else 'no returns')
 
         # ---- camera image

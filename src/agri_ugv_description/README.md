@@ -28,7 +28,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 # Automated tests (simulation for that world must be running)
 ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
 ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
-ros2 run agri_ugv_description sensor_test.py    # orchard world, 13 sensor checks
+ros2 run agri_ugv_description sensor_test.py    # orchard world, 18 sensor checks
 
 # Look at the sensors
 ros2 run rqt_image_view rqt_image_view /camera/image_raw
@@ -123,7 +123,8 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | `/ground_truth/odom` | nav_msgs/Odometry (true pose in `world`) | Gazebo → ROS |
 | `/imu` | sensor_msgs/Imu, 100 Hz, frame `imu_link` | Gazebo → ROS |
 | `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link` | Gazebo → ROS |
-| `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link` | Gazebo → ROS |
+| `/points` | sensor_msgs/PointCloud2, 3D LiDAR, 16 × 900 points, 10 Hz, frame `lidar_link` | Gazebo → ROS |
+| `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link`, derived from `/points` by `cloud_to_scan.py` | ROS node |
 | `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
 | `/clock` | rosgraph_msgs/Clock | Gazebo → ROS |
 
@@ -136,12 +137,19 @@ The sensor links have no mass, so the robot is still 80 kg.
 |---|---|---|
 | IMU | top plate centre, z = 0.39 m | 100 Hz, gyro noise 0.002 rad/s, accel noise 0.02 m/s², orientation in ENU |
 | GPS (NavSat) | 0.28 m behind centre, z = 0.39 m | 10 Hz, horizontal noise 0.3 m (SBAS-class; set `gps_noise_m` to 0.02 for RTK), vertical 0.5 m |
-| 2D LiDAR (`gpu_lidar`) | on a mast 0.20 m ahead of centre, z = 0.52 m | 360°, 720 beams (0.5°), 0.2–20 m, 10 Hz, 1 cm noise. The scan plane passes under the canopy and hits the trunks |
+| 3D LiDAR (`gpu_lidar`, VLP-16 class) | on a 0.25 m mast 0.20 m ahead of centre, optical centre z = 0.67 m | 16 rings from −15° to +15° (2° apart), 900 points per ring (0.4°), 0.4–100 m, 10 Hz, 3 cm noise. Publishes `/points` |
+| 2D scan (derived) | same as LiDAR | `cloud_to_scan.py` keeps points within ±0.25 m of the sensor's height and takes the closest one per 0.4° bin, up to 30 m. Publishes `/scan` for slam_toolbox / Nav2 |
 | RGB camera | front edge of the top plate, z = 0.42 m, tilted 5.7° down | 640 × 480, 80° FOV, 15 Hz |
 
 - **GPS origin:** both worlds use the same origin, an olive-growing area near
   Sfax, Tunisia: 34.74° N, 10.76° E, 20 m elevation, ENU (x = east, y = north).
-- **Switches:** `camera:=false` and `lidar:=false` remove those sensors.
+- **Switches:** `camera:=false` and `lidar:=false` remove those sensors
+  (`lidar:=false` also stops `cloud_to_scan.py`).
+- **Why the taller mast (Task 1):** the −15° ring must clear the top plate,
+  GPS puck and camera. At 0.29 m above the plate, the closest return is the
+  ground at about 2.5 m, so there are no self-hits.
+- **Why `/scan` is derived:** the `pointcloud_to_laserscan` package is not
+  installed, so a small Python node does the same job.
 - **GPS noise units:** Gazebo applies NavSat horizontal noise to
   latitude/longitude **in degrees**, so the xacro converts metres to degrees.
 - **Camera QoS:** subscribe to `/camera/image_raw` with **reliable** QoS.
@@ -184,7 +192,26 @@ The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PAT
 Tests run headless on sim time and are measured against Gazebo's ground-truth
 pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
 
-### Sensors: `sensor_test.py` (orchard), **13/13 passed** (2026-10-21)
+### Task 1, 3D LiDAR: `sensor_test.py` (orchard), **18/18 passed** (2026-10-21)
+
+New checks (the 13 earlier checks also pass):
+
+| Check | Result |
+|---|---|
+| `/points` and `/scan` rates (sim time) | 10.0 Hz and 10.0 Hz |
+| Cloud layout | 16 rings × 900 points, fields x, y, z, intensity, ring, frame `lidar_link` |
+| No self-hits | 8266 valid points, closest 2.45 m (lowest ring meets the ground at about 2.5 m) |
+| Ground at the right height | 2535 ground points within 3.5 m, median 0.666 m below the sensor (expected 0.667) |
+| Canopies above the trunks | 1611 points more than 1.52 m above ground, 100 % within 2 m of a known tree |
+| `/scan` (from the cloud) vs known trunks | 11 trunks matched, median error 0.020 m (3 cm sensor noise). Max 23.4 m = an occluded trunk |
+
+Regression after Task 1: `motion_test` 20/20, `orchard_test` 11/11 (same values as before).
+
+**Cost:** the 16 × 900 cloud lowers the headless real-time factor in the
+orchard from about 0.6 to about 0.3–0.5 on this laptop. Sim-time results are
+not affected.
+
+### Sensors: `sensor_test.py` (orchard), **13/13 passed** (2026-10-21, 2D LiDAR version)
 
 | Check | Result |
 |---|---|
@@ -241,11 +268,9 @@ Phase 1 results without the springs were also 20/20: arcs ±101–103°, spins
 **Failure found and fixed:** before the tyre springs, the orchard test was
 10/11. Rotation left reached +76.4° against a required ≥ 76.5°, with 0.148 m drift.
 
-**Gazebo GUI:** the orchard world was launched with the GUI. Server and GUI
-processes started, the log showed no errors, the robot was at the spawn pose
-and the real-time factor was about 0.6. **The rendering (trees, terrain
-texture, paths) has not been visually verified.** Please check it yourself in
-the Gazebo window.
+**Gazebo GUI:** visually checked by the user on 2026-10-21 in the Gazebo
+window and in RViz: tree rows, dirt paths with ruts, grass strips, robot and
+camera image all render as intended.
 
 ## Known limitations
 
@@ -261,8 +286,5 @@ the Gazebo window.
   Instantaneous yaw rate during spins oscillates (stick-slip); the average is correct.
 - Only one friction value (μ = 1.0) is used for all ground. Dirt, grass and
   wet soil are not distinguished.
-- Ground-texture orientation is computed but not visually verified. The
-  row/path strips run along x and are symmetric about y = 0, so a mirrored
-  texture would still look the same.
 - With the GUI on this 4-core machine, the real-time factor is about 0.6.
   Use `headless:=true` (plus `rviz:=true` if needed) for faster runs.

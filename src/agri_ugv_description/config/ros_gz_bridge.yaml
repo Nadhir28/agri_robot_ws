@@ -47,10 +47,11 @@
   gz_type_name: gz.msgs.NavSat
   direction: GZ_TO_ROS
 
-- ros_topic_name: /scan
-  gz_topic_name: /scan
-  ros_type_name: sensor_msgs/msg/LaserScan
-  gz_type_name: gz.msgs.LaserScan
+# 3D LiDAR point cloud. (/scan is derived from it by cloud_to_scan.py)
+- ros_topic_name: /points
+  gz_topic_name: /lidar/points
+  ros_type_name: sensor_msgs/msg/PointCloud2
+  gz_type_name: gz.msgs.PointCloudPacked
   direction: GZ_TO_ROS
 
 - ros_topic_name: /camera/image_raw

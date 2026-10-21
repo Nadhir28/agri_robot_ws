@@ -32,9 +32,19 @@ Visualization Manager:
       Topic:
         Value: /scan
         Reliability Policy: Best Effort
-      Size (m): 0.05
+      Size (m): 0.15
       Color Transformer: FlatColor
       Color: 255; 0; 0
+    - Class: rviz_default_plugins/PointCloud2
+      Name: LiDAR 3D
+      Enabled: true
+      Topic:
+        Value: /points
+        Reliability Policy: Best Effort
+      Size (m): 0.04
+      Style: Points
+      Color Transformer: AxisColor
+      Axis: Z
     - Class: rviz_default_plugins/Image
       Name: Camera
       Enabled: true

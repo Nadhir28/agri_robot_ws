@@ -6,7 +6,7 @@ Arguments:
   headless:=true|false   run the Gazebo server only (no GUI). Default false.
   rviz:=true|false       also start RViz. Default false.
   camera:=true|false     simulate the front camera (rendering, ~RAM). Default true.
-  lidar:=true|false      simulate the 2D LiDAR. Default true.
+  lidar:=true|false      simulate the 3D LiDAR (+ derived /scan). Default true.
   x, y, z, yaw           spawn pose. Default: the selected world's safe spawn
                          pose (see WORLDS below; 0 0 0.05 0 for a custom path).
 """
@@ -99,6 +99,15 @@ def generate_launch_description():
             executable='parameter_bridge',
             parameters=[{'config_file': os.path.join(PKG, 'config', 'ros_gz_bridge.yaml'),
                          'use_sim_time': True}],
+            output='screen',
+        ),
+
+        # 2D /scan from the 3D LiDAR cloud (for slam_toolbox / Nav2)
+        Node(
+            package='agri_ugv_description',
+            executable='cloud_to_scan.py',
+            parameters=[{'use_sim_time': True}],
+            condition=IfCondition(LaunchConfiguration('lidar')),
             output='screen',
         ),
 
