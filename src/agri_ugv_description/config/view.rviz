@@ -25,7 +25,13 @@ Visualization Manager:
       Enabled: true
       Topic:
         Value: /odom
-      Keep: 50
+      Keep: 1
+      Shape:
+        Value: Arrow
+        Shaft Length: 0.5
+        Shaft Radius: 0.03
+        Head Length: 0.15
+        Head Radius: 0.08
     - Class: rviz_default_plugins/LaserScan
       Name: LaserScan
       Enabled: true
@@ -45,6 +51,12 @@ Visualization Manager:
       Style: Points
       Color Transformer: AxisColor
       Axis: Z
+    - Class: rviz_default_plugins/Image
+      Name: Depth
+      Enabled: true
+      Topic:
+        Value: /camera/depth/image_raw
+        Reliability Policy: Reliable
     - Class: rviz_default_plugins/Image
       Name: Camera
       Enabled: true

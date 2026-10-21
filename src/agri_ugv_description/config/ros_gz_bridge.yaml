@@ -54,8 +54,15 @@
   gz_type_name: gz.msgs.PointCloudPacked
   direction: GZ_TO_ROS
 
+# RGB-D camera: colour + depth (32FC1, metres) + shared intrinsics
 - ros_topic_name: /camera/image_raw
-  gz_topic_name: /camera/image_raw
+  gz_topic_name: /camera/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /camera/depth/image_raw
+  gz_topic_name: /camera/depth_image
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS

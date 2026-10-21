@@ -9,7 +9,7 @@
   Frames:  imu_link, gps_link, lidar_link, camera_link (x forward),
            camera_optical_frame (z forward, x right: ROS optical convention).
   Topics:  /imu, /gps/fix, /points (3D LiDAR), /scan (derived 2D),
-           /camera/image_raw, /camera/camera_info
+           /camera/image_raw, /camera/depth/image_raw, /camera/camera_info
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -159,7 +159,14 @@
     </gazebo>
   </xacro:if>
 
-  <!-- ===================== Front RGB camera ===================== -->
+  <!-- ===================== Front RGB-D camera (RealSense D435 class) ===================== -->
+  <!-- One rgbd_camera sensor gives a colour image AND a per-pixel depth image
+       (metres, 32FC1) with the same intrinsics, as needed by visual SLAM
+       (e.g. RTAB-Map). Gazebo topics -> ROS topics (see ros_gz_bridge.yaml):
+         camera/image       -> /camera/image_raw        (rgb8)
+         camera/depth_image -> /camera/depth/image_raw  (32FC1, m; inf = no return)
+         camera/camera_info -> /camera/camera_info
+       Depth range 0.3-10 m, like the D435 indoor/outdoor working range. -->
   <xacro:if value="$(arg enable_camera)">
     <link name="camera_link">
       <visual>
@@ -182,22 +189,25 @@
     </joint>
 
     <gazebo reference="camera_link">
-      <sensor name="camera" type="camera">
+      <sensor name="camera" type="rgbd_camera">
         <always_on>true</always_on>
-        <!-- Subscribe with RELIABLE QoS: ~0.9 MB frames are mostly dropped
-             by best-effort subscribers on this setup (measured 4.3 of 10 Hz). -->
+        <!-- Subscribe to images with RELIABLE QoS: ~0.9-1.2 MB frames are mostly
+             dropped by best-effort subscribers on this setup. -->
         <update_rate>15</update_rate>
-        <topic>camera/image_raw</topic>
+        <topic>camera</topic>
         <gz_frame_id>camera_optical_frame</gz_frame_id>
         <camera>
           <camera_info_topic>camera/camera_info</camera_info_topic>
-          <horizontal_fov>1.396</horizontal_fov>  <!-- 80 deg -->
+          <horizontal_fov>1.211</horizontal_fov>  <!-- 69.4 deg: D435 colour FOV -->
           <image>
             <width>640</width>
             <height>480</height>
             <format>R8G8B8</format>
           </image>
           <clip><near>0.05</near><far>60.0</far></clip>
+          <depth_camera>
+            <clip><near>0.3</near><far>10.0</far></clip>
+          </depth_camera>
           <noise><type>gaussian</type><mean>0.0</mean><stddev>0.007</stddev></noise>
         </camera>
       </sensor>

@@ -38,7 +38,12 @@ class CloudToScan(Node):
         inc = 2 * math.pi / self.bins
         idx = ((np.arctan2(pts[:, 1], pts[:, 0]) + math.pi) / inc).astype(int) % self.bins
         ranges = np.full(self.bins, np.inf, dtype=np.float32)
-        np.minimum.at(ranges, idx, r.astype(np.float32))
+        if len(r):
+            # per-bin minimum: sort by (bin, range), first entry of each bin wins
+            order = np.lexsort((r, idx))
+            idx_s = idx[order]
+            first = np.r_[True, idx_s[1:] != idx_s[:-1]]
+            ranges[idx_s[first]] = r[order][first]
 
         scan = LaserScan()
         scan.header = cloud.header

@@ -7,7 +7,8 @@ Checks (against Gazebo ground truth and the known orchard layout):
   - GPS: fix near the world origin's lat/lon; moves with the robot
   - 3D LiDAR: 16x900 cloud; sees ground at the right height, canopies above
     the trunks, no self-hits; derived /scan matches the known trunk positions
-  - camera: correct size/encoding, image not blank
+  - RGB-D camera: colour image not blank; depth image 32FC1 aligned with it,
+    depth at the pixels of known trunks = true distance; sky = no return
 
 Run with the simulation up:
   ros2 launch agri_ugv_description sim.launch.py world:=olive_orchard headless:=true
@@ -28,14 +29,16 @@ from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
-from sensor_msgs.msg import Image, Imu, LaserScan, NavSatFix, PointCloud2
+from sensor_msgs.msg import CameraInfo, Image, Imu, LaserScan, NavSatFix, PointCloud2
 from sensor_msgs_py import point_cloud2
 
 # Must match agri_ugv.sensors.xacro and the world <spherical_coordinates>
-RATES = {'imu': 100.0, 'gps': 10.0, 'points': 10.0, 'scan': 10.0, 'camera': 15.0}
+RATES = {'imu': 100.0, 'gps': 10.0, 'points': 10.0, 'scan': 10.0, 'camera': 15.0, 'depth': 15.0}
 LIDAR_XYZ = (0.20, 0.0)          # lidar position in base_link (x, y)
 LIDAR_HEIGHT = 0.381 + 0.25 + 0.036   # optical centre above ground: plate + mast + half body
 LIDAR_RINGS, LIDAR_COLS = 16, 900
+CAM_X, CAM_H, CAM_PITCH = 0.35, 0.381 + 0.04, 0.10   # camera: ahead of centre, height, down-tilt
+DEPTH_MIN, DEPTH_MAX = 0.3, 10.0
 ORIGIN_LAT, ORIGIN_LON = 34.74, 10.76
 EARTH_R = 6378137.0
 
@@ -64,6 +67,9 @@ class SensorTest(Node):
         # images: RELIABLE, best-effort drops most ~0.9 MB frames
         self.create_subscription(Image, '/camera/image_raw', lambda m: self._store('camera', m),
                                  QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE))
+        self.create_subscription(Image, '/camera/depth/image_raw', lambda m: self._store('depth', m),
+                                 QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE))
+        self.create_subscription(CameraInfo, '/camera/camera_info', lambda m: self._store('cinfo', m), qos)
         self.results = []
 
     def _store(self, key, msg):
@@ -101,11 +107,11 @@ class SensorTest(Node):
         start = time.monotonic()
         while rclpy.ok() and time.monotonic() - start < 60:
             rclpy.spin_once(self, timeout_sec=0.1)
-            if all(k in self.last for k in ('gt', 'imu', 'gps', 'points', 'scan', 'camera')) and self.now() > 0:
+            if all(k in self.last for k in ('gt', 'imu', 'gps', 'points', 'scan', 'camera', 'depth', 'cinfo')) and self.now() > 0:
                 break
-        missing = [k for k in ('gt', 'imu', 'gps', 'points', 'scan', 'camera') if k not in self.last]
+        missing = [k for k in ('gt', 'imu', 'gps', 'points', 'scan', 'camera', 'depth', 'cinfo') if k not in self.last]
         self.check('all sensor topics publishing', not missing,
-                   'imu, gps, points, scan, camera received' if not missing else f'missing: {missing}')
+                   'imu, gps, points, scan, camera, depth, camera_info received' if not missing else f'missing: {missing}')
         if missing:
             return False
 
@@ -218,6 +224,50 @@ class SensorTest(Node):
                    and data.std() > 10,
                    f'{img.width}x{img.height} {img.encoding}, pixel std {data.std():.1f} '
                    f'(blank image would be ~0), mean {data.mean():.0f}')
+
+        # ---- RGB-D depth image (robot at rest at spawn, camera looking down the path)
+        dimg, info = self.last['depth'], self.last['cinfo']
+        self.check('depth image format',
+                   dimg.encoding == '32FC1' and dimg.width == img.width and dimg.height == img.height
+                   and dimg.header.frame_id == img.header.frame_id,
+                   f'{dimg.width}x{dimg.height} {dimg.encoding}, frame {dimg.header.frame_id} '
+                   f'(colour: {img.width}x{img.height}, frame {img.header.frame_id})')
+        depth = np.frombuffer(bytes(dimg.data), dtype=np.float32).reshape(dimg.height, dimg.width)
+        fx, fy, cx, cy = info.k[0], info.k[4], info.k[2], info.k[5]
+        cyaw, syaw = math.cos(gt_yaw), math.sin(gt_yaw)
+        camx, camy = gt.x + CAM_X * cyaw, gt.y + CAM_X * syaw
+        cp, sp = math.cos(CAM_PITCH), math.sin(CAM_PITCH)
+        derr, seen = [], []
+        for t in self.meta['trees']:
+            # aim at the trunk 0.6 m above the ground (trunks are 0.9-1.2 m tall)
+            dxw, dyw, dz = t['x'] - camx, t['y'] - camy, 0.6 - CAM_H
+            bx = cyaw * dxw + syaw * dyw          # body frame: x forward, y left, z up
+            by = -syaw * dxw + cyaw * dyw
+            xc = cp * bx - sp * dz                # tilt the camera down by CAM_PITCH
+            zc = sp * bx + cp * dz
+            if xc <= DEPTH_MIN or xc - t['trunk_radius'] > DEPTH_MAX - 0.3:
+                continue
+            u = int(round(cx - fx * by / xc))
+            v = int(round(cy - fy * zc / xc))
+            if not (3 <= u < dimg.width - 3 and 3 <= v < dimg.height - 3):
+                continue
+            patch = depth[v - 3:v + 4, u - 3:u + 4]
+            patch = patch[np.isfinite(patch)]
+            if len(patch) == 0:
+                continue
+            measured = float(patch.min())               # trunk front surface
+            expected = xc - t['trunk_radius']
+            derr.append(abs(measured - expected))
+            seen.append(f"{t['name']} {measured:.2f}/{expected:.2f} m @({u},{v})")
+        self.check('depth matches true distance to known trunks', len(derr) >= 2 and max(derr) < 0.15,
+                   f'{len(derr)} trunks in view: ' + '; '.join(seen) + ' (measured/expected)')
+        sky = depth[5:40, dimg.width // 2 - 20:dimg.width // 2 + 20]
+        ground = depth[dimg.height - 40:dimg.height - 5, dimg.width // 2 - 20:dimg.width // 2 + 20]
+        self.check('depth: sky = no return, near ground in range',
+                   np.mean(~np.isfinite(sky) | (sky >= DEPTH_MAX)) > 0.9
+                   and np.all(np.isfinite(ground)) and DEPTH_MIN < float(np.median(ground)) < 3.0,
+                   f'sky patch {100 * np.mean(~np.isfinite(sky) | (sky >= DEPTH_MAX)):.0f} % no return, '
+                   f'ground patch median {float(np.median(ground)):.2f} m')
 
         # ---- IMU yaw rate while spinning
         cmd = Twist()

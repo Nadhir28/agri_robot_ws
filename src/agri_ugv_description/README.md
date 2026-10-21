@@ -28,10 +28,11 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 # Automated tests (simulation for that world must be running)
 ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
 ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
-ros2 run agri_ugv_description sensor_test.py    # orchard world, 18 sensor checks
+ros2 run agri_ugv_description sensor_test.py    # orchard world, 22 sensor checks
 
 # Look at the sensors
-ros2 run rqt_image_view rqt_image_view /camera/image_raw
+ros2 run rqt_image_view rqt_image_view /camera/image_raw        # colour
+ros2 run rqt_image_view rqt_image_view /camera/depth/image_raw  # depth
 ros2 topic echo /gps/fix
 
 # Inspect the model in RViz only
@@ -125,7 +126,8 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link` | Gazebo → ROS |
 | `/points` | sensor_msgs/PointCloud2, 3D LiDAR, 16 × 900 points, 10 Hz, frame `lidar_link` | Gazebo → ROS |
 | `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link`, derived from `/points` by `cloud_to_scan.py` | ROS node |
-| `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
+| `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image (rgb8) + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
+| `/camera/depth/image_raw` | sensor_msgs/Image (32FC1, metres, `inf` = no return), 15 Hz, same frame and intrinsics as the colour image | Gazebo → ROS |
 | `/clock` | rosgraph_msgs/Clock | Gazebo → ROS |
 
 ## Sensors (`urdf/agri_ugv.sensors.xacro`, Phase 3)
@@ -139,7 +141,7 @@ The sensor links have no mass, so the robot is still 80 kg.
 | GPS (NavSat) | 0.28 m behind centre, z = 0.39 m | 10 Hz, horizontal noise 0.3 m (SBAS-class; set `gps_noise_m` to 0.02 for RTK), vertical 0.5 m |
 | 3D LiDAR (`gpu_lidar`, VLP-16 class) | on a 0.25 m mast 0.20 m ahead of centre, optical centre z = 0.67 m | 16 rings from −15° to +15° (2° apart), 900 points per ring (0.4°), 0.4–100 m, 10 Hz, 3 cm noise. Publishes `/points` |
 | 2D scan (derived) | same as LiDAR | `cloud_to_scan.py` keeps points within ±0.25 m of the sensor's height and takes the closest one per 0.4° bin, up to 30 m. Publishes `/scan` for slam_toolbox / Nav2 |
-| RGB camera | front edge of the top plate, z = 0.42 m, tilted 5.7° down | 640 × 480, 80° FOV, 15 Hz |
+| RGB-D camera (`rgbd_camera`, RealSense D435 class) | front edge of the top plate, z = 0.42 m, tilted 5.7° down | colour + aligned depth, 640 × 480, 69.4° horizontal FOV (D435 colour), depth 0.3–10 m, 15 Hz. For visual SLAM (e.g. RTAB-Map) |
 
 - **GPS origin:** both worlds use the same origin, an olive-growing area near
   Sfax, Tunisia: 34.74° N, 10.76° E, 20 m elevation, ENU (x = east, y = north).
@@ -191,6 +193,19 @@ The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PAT
 
 Tests run headless on sim time and are measured against Gazebo's ground-truth
 pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
+
+### Task 2, RGB-D camera: `sensor_test.py` (orchard), **22/22 passed** (2026-10-21)
+
+New checks (the 18 earlier checks also pass):
+
+| Check | Result |
+|---|---|
+| Depth rate (sim time) | 15.2 Hz |
+| Depth format | 640 × 480 32FC1, frame `camera_optical_frame`, same size and frame as the colour image |
+| Depth vs true distance to known trunks (projected with `camera_info`) | olive_r2_t1: 5.07 m measured / 5.07 m true; olive_r3_t1: 4.86 / 4.86 m |
+| Sky and near ground | sky patch 100 % "no return"; ground just ahead 0.74 m |
+
+Regression after Task 2: `motion_test` 20/20, `orchard_test` 11/11.
 
 ### Task 1, 3D LiDAR: `sensor_test.py` (orchard), **18/18 passed** (2026-10-21)
 
@@ -274,8 +289,15 @@ camera image all render as intended.
 
 ## Known limitations
 
-- Sensor rendering (LiDAR + camera) raises the Gazebo server to about 490 MB
-  in the orchard. Use `camera:=false` when the camera is not needed.
+- Sensor rendering (3D LiDAR + RGB-D camera) raises the Gazebo server to about
+  510 MB in the orchard, and the headless real-time factor drops to about 0.2–0.4
+  on this laptop. Use `camera:=false` when the camera is not needed.
+- **Depth is noise-free.** A real D435 has about 2 % depth error at 4 m. Gazebo's
+  `rgbd_camera` noise setting applies to the colour image only, so the depth
+  image is perfect. Add noise in software if a SLAM evaluation needs it.
+- `cloud_to_scan.py` (Python) uses about 35–40 % of one CPU core, mostly to
+  receive the 460 KB cloud 10 times a second. A C++ node (or the
+  `pointcloud_to_laserscan` package, not installed) would be cheaper.
 
 - **Rotation on uneven ground** reaches about 90 % of the commanded angle
   (81° for 90°) with about 0.1 m drift, because skid-steer slip varies with
