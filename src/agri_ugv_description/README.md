@@ -25,7 +25,12 @@ ros2 launch agri_ugv_description sim.launch.py world:=olive_orchard headless:=tr
 # Drive with the keyboard (second terminal, after `source install/setup.bash`)
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
-# Automated tests (simulation for that world must be running)
+# ALL automated tests in one command: starts/stops its own headless
+# simulations (isolated ROS domain, so an open simulation is not disturbed)
+ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor
+ros2 run agri_ugv_description run_tests.sh sensor          # just one suite
+
+# Or one test by hand (the simulation for that world must be running)
 ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
 ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
 ros2 run agri_ugv_description sensor_test.py    # orchard world, 22 sensor checks
