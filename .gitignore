@@ -10,3 +10,6 @@ __pycache__/
 
 # Clearpath reference screenshots (third-party marketing images, kept locally only)
 docs/Pasted image*.png
+
+# thesis report (private until you decide to publish it)
+report/
