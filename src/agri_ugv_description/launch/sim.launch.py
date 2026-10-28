@@ -12,12 +12,11 @@ Arguments:
 """
 import os
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument,
-                            IncludeLaunchDescription, OpaqueFunction)
+                            ExecuteProcess, OpaqueFunction, Shutdown)
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -45,12 +44,21 @@ def _gazebo_and_spawn(context):
             for k, d in zip(('x', 'y', 'z', 'yaw'), default_pose)]
 
     headless = LaunchConfiguration('headless').perform(context).lower() == 'true'
-    gz_args = f'-r {"-s " if headless else ""}{world_file}'
+    gz_args = ['-r'] + (['-s'] if headless else []) + [world_file, '--force-version', '8']
+    # gz_sim_wrapper.sh stops leftover Gazebo servers from earlier runs and makes
+    # sure the server/GUI processes stop together with this launch (see script).
+    wrapper = os.path.join(get_package_prefix('agri_ugv_description'),
+                           'lib', 'agri_ugv_description', 'gz_sim_wrapper.sh')
     return [
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(
-                get_package_share_directory('ros_gz_sim'), 'launch', 'gz_sim.launch.py')),
-            launch_arguments={'gz_args': gz_args, 'on_exit_shutdown': 'true'}.items(),
+        ExecuteProcess(
+            cmd=[wrapper] + gz_args,
+            name='gazebo',
+            output='screen',
+            additional_env={'GZ_SIM_SYSTEM_PLUGIN_PATH': os.pathsep.join(
+                [os.environ.get('GZ_SIM_SYSTEM_PLUGIN_PATH', ''),
+                 os.environ.get('LD_LIBRARY_PATH', '')])},
+            sigterm_timeout='10',
+            on_exit=Shutdown(),     # closing the Gazebo window stops everything
         ),
         Node(
             package='ros_gz_sim',

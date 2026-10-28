@@ -13,6 +13,7 @@
 # The tests use their own ROS domain and Gazebo partition, so a simulation you
 # have open at the same time is not disturbed (and does not disturb the tests).
 # Full logs: ~/.ros/agri_ugv_tests/<date-time>/
+# Best results with no other Gazebo window open (the tests run faster).
 
 set -u
 SUITES=("$@")
@@ -47,8 +48,9 @@ for s in "${SUITES[@]}"; do
     trap 'stop_sim $PG; exit 130' INT TERM
 
     READY=0
-    for _ in $(seq 1 60); do
-        if timeout 3 ros2 topic echo --once /ground_truth/odom > /dev/null 2>&1; then READY=1; break; fi
+    # patient: on a loaded PC (e.g. a Gazebo window open) ros2 CLI itself starts slowly
+    for _ in $(seq 1 18); do
+        if timeout 10 ros2 topic echo --once /ground_truth/odom > /dev/null 2>&1; then READY=1; break; fi
         sleep 1
     done
     if [ $READY -eq 0 ]; then

@@ -10,6 +10,7 @@ import math
 
 import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import LaserScan, PointCloud2
@@ -59,7 +60,10 @@ class CloudToScan(Node):
 
 def main():
     rclpy.init()
-    rclpy.spin(CloudToScan())
+    try:
+        rclpy.spin(CloudToScan())
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass   # normal stop (Ctrl+C / launch shutdown)
 
 
 if __name__ == '__main__':

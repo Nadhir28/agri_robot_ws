@@ -72,7 +72,9 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.5
+      # the view follows the robot (Fixed Frame stays odom)
+      Target Frame: base_footprint
+      Distance: 6
       Focal Point: {X: 0, Y: 0, Z: 0.2}
       Pitch: 0.5
       Yaw: 0.8
