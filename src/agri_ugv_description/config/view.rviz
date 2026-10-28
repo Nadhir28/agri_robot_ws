@@ -57,6 +57,10 @@ Visualization Manager:
       Topic:
         Value: /camera/depth/image_raw
         Reliability Policy: Reliable
+      # fixed 0-10 m scale: auto-normalize breaks on inf pixels (sky) and shows noise
+      Normalize Range: false
+      Min Value: 0
+      Max Value: 10
     - Class: rviz_default_plugins/Image
       Name: Camera
       Enabled: true
