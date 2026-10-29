@@ -6,7 +6,7 @@ find_package(ament_cmake REQUIRED)
 install(DIRECTORY urdf config worlds launch models
   DESTINATION share/${PROJECT_NAME})
 
-install(PROGRAMS scripts/motion_test.py scripts/orchard_test.py scripts/sensor_test.py scripts/cloud_to_scan.py scripts/rtk_gnss.py scripts/rtk_test.py scripts/run_tests.sh scripts/gz_sim_wrapper.sh
+install(PROGRAMS scripts/motion_test.py scripts/orchard_test.py scripts/sensor_test.py scripts/cloud_to_scan.py scripts/rtk_gnss.py scripts/rtk_test.py scripts/gps_monitor.py scripts/run_tests.sh scripts/gz_sim_wrapper.sh
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
