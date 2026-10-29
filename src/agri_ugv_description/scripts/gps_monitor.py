@@ -9,7 +9,9 @@ Once per second, prints the distance between the true antenna position
   ros2 run agri_ugv_description gps_monitor.py
   ros2 param set /rtk_gnss rtk_enabled false   # in another terminal: RTK off
 """
+import bisect
 import math
+from collections import deque
 
 import numpy as np
 import rclpy
@@ -29,6 +31,10 @@ M_N = math.radians(1.0) * WGS84_A * (1.0 - WGS84_E2) / _w ** 3
 M_E = math.radians(1.0) * WGS84_A / _w * math.cos(math.radians(ORIGIN_LAT))
 
 
+def stamp_s(msg):
+    return msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+
+
 def rotate(q, v):
     u = np.array([q.x, q.y, q.z])
     return v + 2 * np.cross(u, np.cross(u, v) + q.w * v)
@@ -44,15 +50,23 @@ class GpsMonitor(Node):
         self.tf = Buffer()
         TransformListener(self.tf, self)
         self.antenna = None
-        self.gt = self.raw = self.fix = None
-        self.create_subscription(Odometry, '/ground_truth/odom', lambda m: setattr(self, 'gt', m), 10)
+        self.raw = self.fix = None
+        self.gt = deque(maxlen=200)      # recent ground truth, to match each fix by its timestamp
+        self.create_subscription(Odometry, '/ground_truth/odom', lambda m: self.gt.append((stamp_s(m), m)), 10)
         self.create_subscription(NavSatFix, '/gps/raw', lambda m: setattr(self, 'raw', m), qos_profile_sensor_data)
         self.create_subscription(NavSatFix, '/gps/fix', lambda m: setattr(self, 'fix', m), qos_profile_sensor_data)
         self.create_timer(1.0, self.show)
         print('  standalone GPS | RTK GPS (/gps/fix) | mode')
 
+    def truth_at(self, t):
+        times = [s for s, _ in self.gt]
+        i = min(bisect.bisect_left(times, t), len(times) - 1)
+        if i > 0 and t - times[i - 1] < times[i] - t:
+            i -= 1
+        return self.gt[i][1]
+
     def error(self, f):
-        p = self.gt.pose.pose
+        p = self.truth_at(stamp_s(f)).pose.pose
         true = np.array([p.position.x, p.position.y]) + rotate(p.orientation, self.antenna)[:2]
         meas = np.array([(f.longitude - ORIGIN_LON) * M_E, (f.latitude - ORIGIN_LAT) * M_N])
         return float(np.linalg.norm(meas - true))
@@ -63,7 +77,7 @@ class GpsMonitor(Node):
                 return
             t = self.tf.lookup_transform('base_footprint', 'gps_link', rclpy.time.Time()).transform.translation
             self.antenna = np.array([t.x, t.y, t.z])
-        if self.gt is None or self.raw is None or self.fix is None:
+        if not self.gt or self.raw is None or self.fix is None:
             print('  waiting for /ground_truth/odom, /gps/raw, /gps/fix ...')
             return
         mode = 'RTK' if self.fix.status.status == NavSatStatus.STATUS_GBAS_FIX else 'standalone (RTK off)'
