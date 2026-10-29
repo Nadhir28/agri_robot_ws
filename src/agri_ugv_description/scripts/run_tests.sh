@@ -17,15 +17,15 @@
 
 set -u
 SUITES=("$@")
-[ ${#SUITES[@]} -eq 0 ] && SUITES=(motion orchard sensor)
+[ ${#SUITES[@]} -eq 0 ] && SUITES=(motion orchard sensor rtk)
 
 export ROS_DOMAIN_ID=${AGRI_TEST_DOMAIN:-87}
 export GZ_PARTITION=agri_ugv_tests_$$
 LOGDIR=~/.ros/agri_ugv_tests/$(date +%Y-%m-%d_%H-%M-%S)
 mkdir -p "$LOGDIR"
 
-declare -A WORLD=([motion]=empty_flat [orchard]=olive_orchard [sensor]=olive_orchard)
-declare -A TEST=([motion]=motion_test.py [orchard]=orchard_test.py [sensor]=sensor_test.py)
+declare -A WORLD=([motion]=empty_flat [orchard]=olive_orchard [sensor]=olive_orchard [rtk]=olive_orchard)
+declare -A TEST=([motion]=motion_test.py [orchard]=orchard_test.py [sensor]=sensor_test.py [rtk]=rtk_test.py)
 
 stop_sim() {
     kill -INT -- -"$1" 2>/dev/null
@@ -37,7 +37,7 @@ SUMMARY=()
 ALL_OK=0
 for s in "${SUITES[@]}"; do
     if [ -z "${WORLD[$s]:-}" ]; then
-        echo "unknown suite '$s' (use: motion, orchard, sensor)"; exit 2
+        echo "unknown suite '$s' (use: motion, orchard, sensor, rtk)"; exit 2
     fi
     echo
     echo "================ $s: ${TEST[$s]} in ${WORLD[$s]} ================"

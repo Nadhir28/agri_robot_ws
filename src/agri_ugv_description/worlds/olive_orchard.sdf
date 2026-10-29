@@ -52,6 +52,13 @@
       <pose>0 0 0 0 0 0</pose>
     </include>
 
+    <!-- RTK GNSS base station on a known point (corrections for the robot GPS) -->
+    <include>
+      <uri>model://rtk_base_station</uri>
+      <name>rtk_base_station</name>
+      <pose>-29.5 -14.0 0.165 0 0 0</pose>
+    </include>
+
     <include>
       <uri>model://olive_tree_b</uri>
       <name>olive_r1_t1</name>

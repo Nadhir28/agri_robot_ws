@@ -41,8 +41,16 @@
   gz_type_name: gz.msgs.IMU
   direction: GZ_TO_ROS
 
-- ros_topic_name: /gps/fix
-  gz_topic_name: /gps/fix
+# GNSS receivers of the robot and of the RTK base station. rtk_gnss.py turns
+# them into /gps/raw (standalone GPS) and /gps/fix (RTK-corrected).
+- ros_topic_name: /gps/navsat
+  gz_topic_name: /gps/navsat
+  ros_type_name: sensor_msgs/msg/NavSatFix
+  gz_type_name: gz.msgs.NavSat
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /rtk_base/navsat
+  gz_topic_name: /rtk_base/navsat
   ros_type_name: sensor_msgs/msg/NavSatFix
   gz_type_name: gz.msgs.NavSat
   direction: GZ_TO_ROS

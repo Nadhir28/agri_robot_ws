@@ -8,7 +8,7 @@
 
   Frames:  imu_link, gps_link, lidar_link, camera_link (x forward),
            camera_optical_frame (z forward, x right: ROS optical convention).
-  Topics:  /imu, /gps/fix, /points (3D LiDAR), /scan (derived 2D),
+  Topics:  /imu, /gps/navsat (-> rtk_gnss.py -> /gps/fix), /points (3D LiDAR), /scan (derived 2D),
            /camera/image_raw, /camera/depth/image_raw, /camera/camera_info
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
@@ -59,7 +59,10 @@
   </gazebo>
 
   <!-- ===================== GPS (NavSat) ===================== -->
-  <xacro:property name="gps_noise_m" value="0.3"/>  <!-- horizontal 1-sigma, metres -->
+  <!-- RTK GNSS receiver. Gazebo gives the true antenna position + receiver noise;
+       rtk_gnss.py adds the satellite/atmosphere error and the base-station
+       corrections, and publishes /gps/raw (standalone) and /gps/fix (RTK). -->
+  <xacro:property name="gps_noise_m" value="0.01"/>  <!-- receiver noise, horizontal 1-sigma, metres -->
   <link name="gps_link">
     <visual>
       <geometry><cylinder radius="0.04" length="0.02"/></geometry>
@@ -76,15 +79,14 @@
     <sensor name="gps" type="navsat">
       <always_on>true</always_on>
       <update_rate>10</update_rate>
-      <topic>gps/fix</topic>
+      <topic>gps/navsat</topic>
       <gz_frame_id>gps_link</gz_frame_id>
       <navsat>
         <!-- Gazebo applies horizontal noise to latitude/longitude in DEGREES:
-             ${gps_noise_m} m / 111320 m-per-degree. 0.3 m = SBAS-class receiver;
-             use ~0.02 m for RTK. Vertical noise is in metres. -->
+             ${gps_noise_m} m / 111320 m-per-degree. Vertical noise is in metres. -->
         <position_sensing>
           <horizontal><noise type="gaussian"><mean>0.0</mean><stddev>${gps_noise_m / 111320.0}</stddev></noise></horizontal>
-          <vertical><noise type="gaussian"><mean>0.0</mean><stddev>0.5</stddev></noise></vertical>
+          <vertical><noise type="gaussian"><mean>0.0</mean><stddev>0.02</stddev></noise></vertical>
         </position_sensing>
       </navsat>
     </sensor>

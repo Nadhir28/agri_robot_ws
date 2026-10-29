@@ -55,5 +55,12 @@
         </visual>
       </link>
     </model>
+
+    <!-- RTK GNSS base station on a known point (corrections for the robot GPS) -->
+    <include>
+      <uri>model://rtk_base_station</uri>
+      <name>rtk_base_station</name>
+      <pose>-8 -8 0 0 0 0</pose>
+    </include>
   </world>
 </sdf>

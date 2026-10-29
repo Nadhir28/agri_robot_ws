@@ -298,7 +298,7 @@ class SensorTest(Node):
         true_d = math.hypot(gt1.position.x - gt0.position.x, gt1.position.y - gt0.position.y)
         gps_d = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
         self.check('gps follows motion', abs(gps_d - true_d) < 1.0 and true_d > 2.0,
-                   f'gps moved {gps_d:.2f} m, robot moved {true_d:.2f} m (noise 0.3 m/fix)')
+                   f'gps moved {gps_d:.2f} m, robot moved {true_d:.2f} m (RTK fix)')
 
         passed = sum(ok for _, ok, _ in self.results)
         self.get_logger().info(f'==== {passed}/{len(self.results)} checks passed ====')

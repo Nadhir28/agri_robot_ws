@@ -119,6 +119,14 @@ def generate_launch_description():
             output='screen',
         ),
 
+        # RTK GNSS: robot GPS corrected by the base station -> /gps/raw, /gps/fix
+        Node(
+            package='agri_ugv_description',
+            executable='rtk_gnss.py',
+            parameters=[{'use_sim_time': True}],
+            output='screen',
+        ),
+
         Node(
             package='rviz2',
             executable='rviz2',

@@ -27,18 +27,22 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 # ALL automated tests in one command: starts/stops its own headless
 # simulations (isolated ROS domain, so an open simulation is not disturbed)
-ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor
+ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor + rtk
 ros2 run agri_ugv_description run_tests.sh sensor          # just one suite
 
 # Or one test by hand (the simulation for that world must be running)
 ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
 ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
 ros2 run agri_ugv_description sensor_test.py    # orchard world, 22 sensor checks
+ros2 run agri_ugv_description rtk_test.py       # orchard world, 11 RTK GPS checks
 
 # Look at the sensors
 ros2 run rqt_image_view rqt_image_view /camera/image_raw        # colour
 ros2 run rqt_image_view rqt_image_view /camera/depth/image_raw  # depth
-ros2 topic echo /gps/fix
+ros2 topic echo /gps/fix                 # RTK position (status 2 = RTK)
+ros2 topic echo /gps/raw                 # same receiver without RTK (metres off)
+ros2 topic echo /rtk_base/corrections    # what the base station sends (E/N/U metres)
+ros2 param set /rtk_gnss rtk_enabled false   # RTK off (demo); true to switch on
 
 # Inspect the model in RViz only
 ros2 launch agri_ugv_description display.launch.py
@@ -128,7 +132,10 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | `/joint_states` | sensor_msgs/JointState (wheels and tyre springs) | Gazebo → ROS |
 | `/ground_truth/odom` | nav_msgs/Odometry (true pose in `world`) | Gazebo → ROS |
 | `/imu` | sensor_msgs/Imu, 100 Hz, frame `imu_link` | Gazebo → ROS |
-| `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link` | Gazebo → ROS |
+| `/gps/navsat`, `/rtk_base/navsat` | sensor_msgs/NavSatFix, 10 Hz: robot and base-station receivers (inputs of `rtk_gnss.py`) | Gazebo → ROS |
+| `/gps/raw` | sensor_msgs/NavSatFix, 10 Hz, standalone GPS (~1.5 m error), status FIX | ROS node `rtk_gnss.py` |
+| `/rtk_base/corrections` | geometry_msgs/Vector3Stamped, 1 Hz, correction in metres (x east, y north, z up) | ROS node `rtk_gnss.py` |
+| `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link`, RTK position (~2 cm), status GBAS_FIX (2) | ROS node `rtk_gnss.py` |
 | `/points` | sensor_msgs/PointCloud2, 3D LiDAR, 16 × 900 points, 10 Hz, frame `lidar_link` | Gazebo → ROS |
 | `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link`, derived from `/points` by `cloud_to_scan.py` | ROS node |
 | `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image (rgb8) + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
@@ -143,7 +150,7 @@ The sensor links have no mass, so the robot is still 80 kg.
 | Sensor | Position (from ground, robot centre) | Settings |
 |---|---|---|
 | IMU | top plate centre, z = 0.39 m | 100 Hz, gyro noise 0.002 rad/s, accel noise 0.02 m/s², orientation in ENU |
-| GPS (NavSat) | 0.28 m behind centre, z = 0.39 m | 10 Hz, horizontal noise 0.3 m (SBAS-class; set `gps_noise_m` to 0.02 for RTK), vertical 0.5 m |
+| GPS (NavSat) + RTK | 0.28 m behind centre, z = 0.39 m | 10 Hz, receiver noise 1 cm horizontal / 2 cm vertical; satellite/atmosphere error and RTK corrections added by `rtk_gnss.py` (see below) |
 | 3D LiDAR (`gpu_lidar`, VLP-16 class) | on a 0.25 m mast 0.20 m ahead of centre, optical centre z = 0.67 m | 16 rings from −15° to +15° (2° apart), 900 points per ring (0.4°), 0.4–100 m, 10 Hz, 3 cm noise. Publishes `/points` |
 | 2D scan (derived) | same as LiDAR | `cloud_to_scan.py` keeps points within ±0.25 m of the sensor's height and takes the closest one per 0.4° bin, up to 30 m. Publishes `/scan` for slam_toolbox / Nav2 |
 | RGB-D camera (`rgbd_camera`, RealSense D435 class) | front edge of the top plate, z = 0.42 m, tilted 5.7° down | colour + aligned depth, 640 × 480, 69.4° horizontal FOV (D435 colour), depth 0.3–10 m, 15 Hz. For visual SLAM (e.g. RTAB-Map) |
@@ -157,6 +164,15 @@ The sensor links have no mass, so the robot is still 80 kg.
   ground at about 2.5 m, so there are no self-hits.
 - **Why `/scan` is derived:** the `pointcloud_to_laserscan` package is not
   installed, so a small Python node does the same job.
+- **RTK GPS (Task 3):** an RTK base station (`models/rtk_base_station`, tripod
+  with antenna and radio) stands on a known point in both worlds (orchard:
+  x = −29.5, y = −14.0; flat world: −8, −8). `rtk_gnss.py` models the
+  satellite/atmosphere error as a smooth common error of about 1.5 m
+  horizontal and 2–3 m vertical, the same for both receivers. The base station
+  knows its true position, so `measured − known` is the error; it sends this
+  correction at 1 Hz. The robot subtracts it: **standalone ≈ 1.5 m, RTK ≈ 2 cm**.
+  If RTK is switched off (`rtk_enabled false`) or corrections are older than
+  5 s, `/gps/fix` falls back to the standalone position with status FIX (0).
 - **GPS noise units:** Gazebo applies NavSat horizontal noise to
   latitude/longitude **in degrees**, so the xacro converts metres to degrees.
 - **Camera QoS:** subscribe to `/camera/image_raw` with **reliable** QoS.
@@ -198,6 +214,21 @@ The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PAT
 
 Tests run headless on sim time and are measured against Gazebo's ground-truth
 pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
+
+### Task 3, RTK GPS: `rtk_test.py` (orchard), **11/11 passed** (2026-10-29)
+
+| Check | Result |
+|---|---|
+| Base station receiver on the known point | (−29.501, −13.998, 1.808) m vs (−29.500, −14.000, 1.810) m in the world file |
+| Corrections rate | 1.00 Hz |
+| Common error in the corrections | 1.48 m horizontal, +1.69 m vertical |
+| Standalone GPS (`/gps/raw`) at rest | mean error 1.55 m |
+| RTK at rest (`/gps/fix`, status 2) | horizontal RMS 1.9 cm, vertical RMS 3.1 cm |
+| RTK while driving 5.9 m | RMS 1.8 cm, max 3.7 cm (standalone 1.54 m) |
+| RTK off → fallback | status 0, error 1.51 m |
+| RTK on again | status 2, RMS 1.7 cm |
+
+The driving trace is written to `~/.ros/agri_ugv_tests/rtk_trace.csv`.
 
 ### Task 2, RGB-D camera: `sensor_test.py` (orchard), **22/22 passed** (2026-10-21)
 
