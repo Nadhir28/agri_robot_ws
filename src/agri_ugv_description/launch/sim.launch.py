@@ -28,7 +28,7 @@ PKG = get_package_share_directory('agri_ugv_description')
 # on a flattened pad (values from worlds/olive_orchard.json).
 WORLDS = {
     'empty_flat': ('empty_flat.sdf', ('0.0', '0.0', '0.05', '0.0')),
-    'olive_orchard': ('olive_orchard.sdf', ('-23.0', '-3.0', '0.155', '0.0')),
+    'olive_orchard': ('olive_orchard.sdf', ('-23.0', '-3.0', '0.533', '0.0')),
 }
 
 

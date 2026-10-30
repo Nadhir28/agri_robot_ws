@@ -6,63 +6,63 @@
     <static>true</static>
     <link name="link">
       <collision name="trunk_collision">
-        <pose>0 0 0.676 0 0 0</pose>
-        <geometry><cylinder><radius>0.148</radius><length>1.352</length></cylinder></geometry>
+        <pose>0 0 0.646 0 0 0</pose>
+        <geometry><cylinder><radius>0.160</radius><length>1.291</length></cylinder></geometry>
       </collision>
       <visual name="trunk">
-        <pose>0 0 0.576 -0.045 0 0</pose>
-        <geometry><cylinder><radius>0.148</radius><length>1.152</length></cylinder></geometry>
+        <pose>0 0 0.546 -0.065 0 0</pose>
+        <geometry><cylinder><radius>0.160</radius><length>1.091</length></cylinder></geometry>
         <material><ambient>0.33 0.27 0.20 1</ambient><diffuse>0.33 0.27 0.20 1</diffuse></material>
       </visual>
       <visual name="branch_0">
-        <pose>0.228 -0.070 1.563 0.155 0.502 0</pose>
-        <geometry><cylinder><radius>0.081</radius><length>0.951</length></cylinder></geometry>
+        <pose>0.212 0.001 1.455 -0.003 0.529 0</pose>
+        <geometry><cylinder><radius>0.088</radius><length>0.841</length></cylinder></geometry>
         <material><ambient>0.33 0.27 0.20 1</ambient><diffuse>0.33 0.27 0.20 1</diffuse></material>
       </visual>
       <visual name="branch_1">
-        <pose>-0.154 0.179 1.552 -0.403 -0.348 0</pose>
-        <geometry><cylinder><radius>0.081</radius><length>0.929</length></cylinder></geometry>
+        <pose>-0.180 0.165 1.483 -0.377 -0.412 0</pose>
+        <geometry><cylinder><radius>0.088</radius><length>0.922</length></cylinder></geometry>
         <material><ambient>0.33 0.27 0.20 1</ambient><diffuse>0.33 0.27 0.20 1</diffuse></material>
       </visual>
       <visual name="branch_2">
-        <pose>-0.053 -0.196 1.558 0.447 -0.121 0</pose>
-        <geometry><cylinder><radius>0.081</radius><length>0.908</length></cylinder></geometry>
+        <pose>-0.161 -0.193 1.492 0.431 -0.360 0</pose>
+        <geometry><cylinder><radius>0.088</radius><length>0.947</length></cylinder></geometry>
         <material><ambient>0.33 0.27 0.20 1</ambient><diffuse>0.33 0.27 0.20 1</diffuse></material>
       </visual>
       <visual name="canopy_0">
-        <pose>0.000 0.000 2.602 0 0 0</pose>
+        <pose>0.000 0.000 2.541 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
         <geometry><ellipsoid><radii>1.150 1.150 0.850</radii></ellipsoid></geometry>
         <material><ambient>0.30 0.40 0.24 1</ambient><diffuse>0.30 0.40 0.24 1</diffuse></material>
       </visual>
       <visual name="canopy_1">
-        <pose>0.756 0.117 2.361 0 0 0</pose>
+        <pose>0.642 -0.117 2.354 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
-        <geometry><ellipsoid><radii>0.847 0.823 0.640</radii></ellipsoid></geometry>
+        <geometry><ellipsoid><radii>0.853 0.841 0.674</radii></ellipsoid></geometry>
         <material><ambient>0.36 0.44 0.30 1</ambient><diffuse>0.36 0.44 0.30 1</diffuse></material>
       </visual>
       <visual name="canopy_2">
-        <pose>0.096 0.706 2.533 0 0 0</pose>
+        <pose>0.190 0.733 2.559 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
-        <geometry><ellipsoid><radii>0.803 0.890 0.609</radii></ellipsoid></geometry>
+        <geometry><ellipsoid><radii>0.871 0.910 0.657</radii></ellipsoid></geometry>
         <material><ambient>0.40 0.47 0.34 1</ambient><diffuse>0.40 0.47 0.34 1</diffuse></material>
       </visual>
       <visual name="canopy_3">
-        <pose>-0.659 0.237 2.347 0 0 0</pose>
+        <pose>-0.485 0.423 2.553 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
-        <geometry><ellipsoid><radii>0.842 0.893 0.724</radii></ellipsoid></geometry>
+        <geometry><ellipsoid><radii>0.825 0.825 0.696</radii></ellipsoid></geometry>
         <material><ambient>0.30 0.40 0.24 1</ambient><diffuse>0.30 0.40 0.24 1</diffuse></material>
       </visual>
       <visual name="canopy_4">
-        <pose>-0.497 -0.566 2.441 0 0 0</pose>
+        <pose>-0.632 -0.377 2.498 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
-        <geometry><ellipsoid><radii>0.809 0.890 0.669</radii></ellipsoid></geometry>
+        <geometry><ellipsoid><radii>0.851 0.878 0.695</radii></ellipsoid></geometry>
         <material><ambient>0.36 0.44 0.30 1</ambient><diffuse>0.36 0.44 0.30 1</diffuse></material>
       </visual>
       <visual name="canopy_5">
-        <pose>0.256 -0.729 2.307 0 0 0</pose>
+        <pose>0.158 -0.715 2.303 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
-        <geometry><ellipsoid><radii>0.759 0.800 0.660</radii></ellipsoid></geometry>
+        <geometry><ellipsoid><radii>0.802 0.861 0.625</radii></ellipsoid></geometry>
         <material><ambient>0.40 0.47 0.34 1</ambient><diffuse>0.40 0.47 0.34 1</diffuse></material>
       </visual>
     </link>

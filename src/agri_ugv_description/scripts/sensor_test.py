@@ -239,8 +239,8 @@ class SensorTest(Node):
         cp, sp = math.cos(CAM_PITCH), math.sin(CAM_PITCH)
         derr, seen = [], []
         for t in self.meta['trees']:
-            # aim at the trunk 0.6 m above the ground (trunks are 0.9-1.2 m tall)
-            dxw, dyw, dz = t['x'] - camx, t['y'] - camy, 0.6 - CAM_H
+            # aim at the trunk 0.4 m above the spawn pad (young trunks are about 0.7 m tall)
+            dxw, dyw, dz = t['x'] - camx, t['y'] - camy, 0.4 - CAM_H
             bx = cyaw * dxw + syaw * dyw          # body frame: x forward, y left, z up
             by = -syaw * dxw + cyaw * dyw
             xc = cp * bx - sp * dz                # tilt the camera down by CAM_PITCH

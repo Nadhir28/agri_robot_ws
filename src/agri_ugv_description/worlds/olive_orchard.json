@@ -1,8 +1,8 @@
 {
  "seed": 7,
  "terrain_size": 64.0,
- "heightmap_resolution": 129,
- "height_range": 0.3069,
+ "heightmap_resolution": 257,
+ "height_range": 0.7206,
  "heightmap": "models/orchard_terrain/materials/textures/heightmap.png",
  "row_y": [
   -12.0,
@@ -32,254 +32,286 @@
  "spawn": {
   "x": -23.0,
   "y": -3.0,
-  "z": 0.155,
+  "z": 0.533,
   "yaw": 0.0
  },
  "rtk_base": {
   "x": -29.5,
   "y": -14.0,
-  "z": 0.165
+  "z": 0.314
  },
  "trees": [
   {
    "name": "olive_r1_t1",
-   "x": -17.58,
-   "y": -11.934,
+   "x": -17.575,
+   "y": -11.274,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r1_t2",
-   "x": -12.564,
-   "y": -11.945,
-   "trunk_radius": 0.148
+   "x": -12.504,
+   "y": -11.199,
+   "trunk_radius": 0.16
   },
   {
    "name": "olive_r1_t3",
-   "x": -7.477,
-   "y": -11.923,
+   "x": -7.813,
+   "y": -11.909,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r1_t4",
-   "x": -2.612,
-   "y": -11.922,
-   "trunk_radius": 0.16
-  },
-  {
-   "name": "olive_r1_t5",
-   "x": 2.641,
-   "y": -12.127,
-   "trunk_radius": 0.148
+   "x": -2.486,
+   "y": -11.839,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r1_t6",
-   "x": 7.595,
-   "y": -12.049,
+   "x": 7.792,
+   "y": -12.166,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r1_t7",
-   "x": 12.583,
-   "y": -12.074,
-   "trunk_radius": 0.16
+   "x": 12.772,
+   "y": -12.336,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r1_t8",
-   "x": 17.462,
-   "y": -11.946,
+   "x": 17.641,
+   "y": -11.779,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r2_t1",
-   "x": -17.383,
-   "y": -5.962,
-   "trunk_radius": 0.148
+   "x": -17.081,
+   "y": -5.823,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r2_t2",
-   "x": -12.525,
-   "y": -5.95,
-   "trunk_radius": 0.148
-  },
-  {
-   "name": "olive_r2_t3",
-   "x": -7.422,
-   "y": -6.024,
-   "trunk_radius": 0.148
-  },
-  {
-   "name": "olive_r2_t4",
-   "x": -2.527,
-   "y": -6.107,
+   "x": -12.844,
+   "y": -5.586,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r2_t5",
-   "x": 2.582,
-   "y": -6.012,
-   "trunk_radius": 0.16
+   "x": 2.449,
+   "y": -6.041,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r2_t6",
-   "x": 7.369,
-   "y": -5.863,
+   "x": 7.43,
+   "y": -5.26,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r2_t7",
-   "x": 12.586,
-   "y": -5.968,
-   "trunk_radius": 0.148
+   "x": 12.455,
+   "y": -5.927,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r2_t8",
-   "x": 17.38,
-   "y": -6.1,
-   "trunk_radius": 0.148
+   "x": 17.787,
+   "y": -6.677,
+   "trunk_radius": 0.16
   },
   {
    "name": "olive_r3_t1",
-   "x": -17.6,
-   "y": 0.018,
-   "trunk_radius": 0.148
-  },
-  {
-   "name": "olive_r3_t2",
-   "x": -12.457,
-   "y": 0.09,
+   "x": -17.722,
+   "y": 0.08,
    "trunk_radius": 0.16
-  },
-  {
-   "name": "olive_r3_t3",
-   "x": -7.548,
-   "y": 0.125,
-   "trunk_radius": 0.148
   },
   {
    "name": "olive_r3_t4",
-   "x": -2.551,
-   "y": 0.144,
-   "trunk_radius": 0.148
+   "x": -2.255,
+   "y": -0.62,
+   "trunk_radius": 0.16
   },
   {
    "name": "olive_r3_t5",
-   "x": 2.577,
-   "y": 0.062,
-   "trunk_radius": 0.148
+   "x": 2.745,
+   "y": -0.033,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r3_t6",
-   "x": 7.598,
-   "y": -0.091,
-   "trunk_radius": 0.16
+   "x": 7.16,
+   "y": -0.474,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r3_t7",
-   "x": 12.428,
-   "y": 0.058,
-   "trunk_radius": 0.16
+   "x": 12.18,
+   "y": -0.132,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r3_t8",
-   "x": 17.573,
-   "y": -0.136,
-   "trunk_radius": 0.148
+   "x": 17.512,
+   "y": 0.625,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r4_t1",
-   "x": -17.593,
-   "y": 5.949,
-   "trunk_radius": 0.148
+   "x": -17.95,
+   "y": 6.008,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r4_t2",
-   "x": -12.497,
-   "y": 5.934,
-   "trunk_radius": 0.148
-  },
-  {
-   "name": "olive_r4_t3",
-   "x": -7.379,
-   "y": 5.928,
-   "trunk_radius": 0.148
-  },
-  {
-   "name": "olive_r4_t4",
-   "x": -2.447,
-   "y": 6.007,
-   "trunk_radius": 0.148
+   "x": -12.361,
+   "y": 5.496,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r4_t5",
-   "x": 2.53,
-   "y": 5.857,
-   "trunk_radius": 0.148
+   "x": 2.535,
+   "y": 6.533,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r4_t6",
-   "x": 7.4,
-   "y": 6.079,
-   "trunk_radius": 0.148
+   "x": 7.802,
+   "y": 6.511,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r4_t7",
-   "x": 12.564,
-   "y": 6.126,
+   "x": 12.417,
+   "y": 6.099,
    "trunk_radius": 0.16
   },
   {
    "name": "olive_r4_t8",
-   "x": 17.592,
-   "y": 6.074,
-   "trunk_radius": 0.16
-  },
-  {
-   "name": "olive_r5_t1",
-   "x": -17.503,
-   "y": 12.116,
-   "trunk_radius": 0.148
+   "x": 17.799,
+   "y": 5.831,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r5_t2",
-   "x": -12.501,
-   "y": 12.115,
-   "trunk_radius": 0.148
+   "x": -12.661,
+   "y": 11.724,
+   "trunk_radius": 0.16
   },
   {
    "name": "olive_r5_t3",
-   "x": -7.433,
-   "y": 12.038,
-   "trunk_radius": 0.16
-  },
-  {
-   "name": "olive_r5_t4",
-   "x": -2.488,
-   "y": 12.091,
-   "trunk_radius": 0.148
+   "x": -7.755,
+   "y": 11.9,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r5_t5",
-   "x": 2.402,
-   "y": 12.041,
-   "trunk_radius": 0.16
+   "x": 2.199,
+   "y": 12.05,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r5_t6",
-   "x": 7.485,
-   "y": 11.956,
-   "trunk_radius": 0.16
+   "x": 7.217,
+   "y": 11.881,
+   "trunk_radius": 0.122
   },
   {
    "name": "olive_r5_t7",
-   "x": 12.639,
-   "y": 11.954,
-   "trunk_radius": 0.148
+   "x": 12.56,
+   "y": 11.385,
+   "trunk_radius": 0.091
   },
   {
    "name": "olive_r5_t8",
-   "x": 17.628,
-   "y": 11.947,
-   "trunk_radius": 0.148
+   "x": 17.801,
+   "y": 11.331,
+   "trunk_radius": 0.16
+  }
+ ],
+ "rocks": [
+  {
+   "name": "rock_1",
+   "x": 18.955,
+   "y": -11.987,
+   "radius": 0.3
+  },
+  {
+   "name": "rock_2",
+   "x": 8.71,
+   "y": -0.073,
+   "radius": 0.3
+  },
+  {
+   "name": "rock_3",
+   "x": -8.22,
+   "y": 4.726,
+   "radius": 0.22
+  },
+  {
+   "name": "rock_4",
+   "x": -6.037,
+   "y": -1.227,
+   "radius": 0.15
+  },
+  {
+   "name": "rock_5",
+   "x": 16.698,
+   "y": -6.211,
+   "radius": 0.15
+  },
+  {
+   "name": "rock_6",
+   "x": -19.024,
+   "y": -10.732,
+   "radius": 0.15
+  },
+  {
+   "name": "rock_7",
+   "x": 11.566,
+   "y": -12.009,
+   "radius": 0.15
+  },
+  {
+   "name": "rock_8",
+   "x": 13.694,
+   "y": -6.185,
+   "radius": 0.3
+  },
+  {
+   "name": "rock_9",
+   "x": 3.349,
+   "y": 7.255,
+   "radius": 0.22
+  },
+  {
+   "name": "rock_10",
+   "x": -0.494,
+   "y": -5.764,
+   "radius": 0.15
+  },
+  {
+   "name": "rock_11",
+   "x": 3.563,
+   "y": -6.389,
+   "radius": 0.22
+  },
+  {
+   "name": "rock_12",
+   "x": 18.871,
+   "y": 11.922,
+   "radius": 0.15
+  },
+  {
+   "name": "rock_13",
+   "x": -10.316,
+   "y": 5.816,
+   "radius": 0.22
+  },
+  {
+   "name": "rock_14",
+   "x": -7.833,
+   "y": -0.26,
+   "radius": 0.22
   }
  ]
 }
