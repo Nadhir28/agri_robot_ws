@@ -4,7 +4,7 @@ robot_state_publisher.
 Arguments:
   world:=empty_flat|olive_orchard|<path.sdf>   Default: empty_flat
   headless:=true|false   run the Gazebo server only (no GUI). Default false.
-  rviz:=true|false       also start RViz. Default false.
+  rviz:=true|false       also start RViz (map view with slam:=true). Default false.
   camera:=true|false     simulate the front camera (rendering, ~RAM). Default true.
   lidar:=true|false      simulate the 3D LiDAR (+ derived /scan). Default true.
   slam:=true|false       build the map with slam_toolbox (olive_orchard). Default false.
@@ -203,7 +203,10 @@ def generate_launch_description():
         Node(
             package='rviz2',
             executable='rviz2',
-            arguments=['-d', os.path.join(PKG, 'config', 'view.rviz')],
+            arguments=['-d', PythonExpression(
+                ['"', os.path.join(PKG, 'config', 'map.rviz'), '" if "',
+                 LaunchConfiguration('slam'), '" == "true" else "',
+                 os.path.join(PKG, 'config', 'view.rviz'), '"'])],
             parameters=[{'use_sim_time': True}],
             condition=IfCondition(LaunchConfiguration('rviz')),
         ),
