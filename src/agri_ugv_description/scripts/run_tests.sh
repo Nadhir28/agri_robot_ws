@@ -11,6 +11,7 @@
 #          sensor  -> sensor_test.py  in olive_orchard  (Phase 3 + Tasks 1-2, sensors)
 #          rtk     -> rtk_test.py     in olive_orchard  (Task 3, RTK GPS)
 #          ekf     -> ekf_test.py     in olive_orchard  (Phase 4, sensor fusion)
+#          map     -> map_test.py     in olive_orchard  (Phase 5, SLAM map)
 #
 # The tests use their own ROS domain and Gazebo partition, so a simulation you
 # have open at the same time is not disturbed (and does not disturb the tests).
@@ -19,15 +20,16 @@
 
 set -u
 SUITES=("$@")
-[ ${#SUITES[@]} -eq 0 ] && SUITES=(motion orchard sensor rtk ekf)
+[ ${#SUITES[@]} -eq 0 ] && SUITES=(motion orchard sensor rtk ekf map)
 
 export ROS_DOMAIN_ID=${AGRI_TEST_DOMAIN:-87}
 export GZ_PARTITION=agri_ugv_tests_$$
 LOGDIR=~/.ros/agri_ugv_tests/$(date +%Y-%m-%d_%H-%M-%S)
 mkdir -p "$LOGDIR"
 
-declare -A WORLD=([motion]=empty_flat [orchard]=olive_orchard [sensor]=olive_orchard [rtk]=olive_orchard [ekf]=olive_orchard)
-declare -A TEST=([motion]=motion_test.py [orchard]=orchard_test.py [sensor]=sensor_test.py [rtk]=rtk_test.py [ekf]=ekf_test.py)
+declare -A WORLD=([motion]=empty_flat [orchard]=olive_orchard [sensor]=olive_orchard [rtk]=olive_orchard [ekf]=olive_orchard [map]=olive_orchard)
+declare -A TEST=([motion]=motion_test.py [orchard]=orchard_test.py [sensor]=sensor_test.py [rtk]=rtk_test.py [ekf]=ekf_test.py [map]=map_test.py)
+declare -A ARGS=([map]="slam:=true camera:=false")
 
 stop_sim() {
     kill -INT -- -"$1" 2>/dev/null
@@ -39,12 +41,12 @@ SUMMARY=()
 ALL_OK=0
 for s in "${SUITES[@]}"; do
     if [ -z "${WORLD[$s]:-}" ]; then
-        echo "unknown suite '$s' (use: motion, orchard, sensor, rtk, ekf)"; exit 2
+        echo "unknown suite '$s' (use: motion, orchard, sensor, rtk, ekf, map)"; exit 2
     fi
     echo
     echo "================ $s: ${TEST[$s]} in ${WORLD[$s]} ================"
     echo "starting simulation (headless)..."
-    setsid ros2 launch agri_ugv_description sim.launch.py world:="${WORLD[$s]}" headless:=true \
+    setsid ros2 launch agri_ugv_description sim.launch.py world:="${WORLD[$s]}" headless:=true ${ARGS[$s]:-} \
         > "$LOGDIR/$s.sim.log" 2>&1 < /dev/null &
     PG=$!
     trap 'stop_sim $PG; exit 130' INT TERM

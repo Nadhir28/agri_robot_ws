@@ -7,6 +7,7 @@ Arguments:
   rviz:=true|false       also start RViz. Default false.
   camera:=true|false     simulate the front camera (rendering, ~RAM). Default true.
   lidar:=true|false      simulate the 3D LiDAR (+ derived /scan). Default true.
+  slam:=true|false       build the map with slam_toolbox (olive_orchard). Default false.
   x, y, z, yaw           spawn pose. Default: the selected world's safe spawn
                          pose (see WORLDS below; 0 0 0.05 0 for a custom path).
 """
@@ -15,9 +16,11 @@ import os
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument,
-                            ExecuteProcess, OpaqueFunction, Shutdown)
+                            ExecuteProcess, IncludeLaunchDescription, OpaqueFunction,
+                            Shutdown)
 from launch.conditions import IfCondition
-from launch.substitutions import Command, LaunchConfiguration
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -68,7 +71,28 @@ def _gazebo_and_spawn(context):
                        '-x', pose[0], '-y', pose[1], '-z', pose[2], '-Y', pose[3]],
             output='screen',
         ),
-    ] + (_global_localization(pose) if world_arg == 'olive_orchard' else [])
+    ] + (_global_localization(pose) if world_arg == 'olive_orchard' else []) + (
+        _mapping() if world_arg == 'olive_orchard'
+        and LaunchConfiguration('slam').perform(context).lower() == 'true' else [])
+
+
+def _mapping():
+    """slam_toolbox on /scan, see config/slam.yaml for the frames."""
+    slam_launch = os.path.join(get_package_share_directory('slam_toolbox'),
+                               'launch', 'online_async_launch.py')
+    return [
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            arguments=['--frame-id', 'map', '--child-frame-id', 'slam_map'],
+            parameters=[{'use_sim_time': True}],
+        ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(slam_launch),
+            launch_arguments={'use_sim_time': 'true',
+                              'slam_params_file': os.path.join(PKG, 'config', 'slam.yaml')}.items(),
+        ),
+    ]
 
 
 def _global_localization(pose):
@@ -113,6 +137,7 @@ def generate_launch_description():
         DeclareLaunchArgument('rviz', default_value='false'),
         DeclareLaunchArgument('camera', default_value='true'),
         DeclareLaunchArgument('lidar', default_value='true'),
+        DeclareLaunchArgument('slam', default_value='false'),
         DeclareLaunchArgument('x', default_value=''),
         DeclareLaunchArgument('y', default_value=''),
         DeclareLaunchArgument('z', default_value=''),
@@ -142,7 +167,10 @@ def generate_launch_description():
         Node(
             package='agri_ugv_description',
             executable='cloud_to_scan.py',
-            parameters=[{'use_sim_time': True}],
+            parameters=[{'use_sim_time': True,
+                         'no_hit_range': ParameterValue(PythonExpression(
+                             ['29.0 if "', LaunchConfiguration('slam'), '" == "true" else 0.0']),
+                             value_type=float)}],
             condition=IfCondition(LaunchConfiguration('lidar')),
             output='screen',
         ),

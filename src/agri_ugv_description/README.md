@@ -27,7 +27,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 # ALL automated tests in one command: starts/stops its own headless
 # simulations (isolated ROS domain, so an open simulation is not disturbed)
-ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor + rtk + ekf
+ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor + rtk + ekf + map
 ros2 run agri_ugv_description run_tests.sh sensor          # just one suite
 
 # Or one test by hand (the simulation for that world must be running)
@@ -37,6 +37,7 @@ ros2 run agri_ugv_description sensor_test.py    # orchard world, 22 sensor check
 ros2 run agri_ugv_description rtk_test.py       # orchard world, 11 RTK GPS checks
 ros2 run agri_ugv_description ekf_test.py       # orchard world, 10 sensor fusion checks
 ros2 run agri_ugv_description ekf_monitor.py    # live error: wheels alone vs EKF
+ros2 run agri_ugv_description map_test.py       # orchard world with slam:=true camera:=false, 9 mapping checks
 
 # Look at the sensors
 ros2 run rqt_image_view rqt_image_view /camera/image_raw        # colour
@@ -143,7 +144,8 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link`, RTK position (~2 cm), status GBAS_FIX (2) | ROS node `rtk_gnss.py` |
 | `/gps/rtk` | `/gps/fix` only while it is RTK, input of the EKF | ROS node `rtk_gnss.py` |
 | `/points` | sensor_msgs/PointCloud2, 3D LiDAR, 16 × 900 points, 10 Hz, frame `lidar_link` | Gazebo → ROS |
-| `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link`, derived from `/points` by `cloud_to_scan.py` | ROS node |
+| `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link`, standing obstacles only, derived from `/points` by `cloud_to_scan.py` | ROS node |
+| `/map` | nav_msgs/OccupancyGrid, 5 cm, frame `slam_map` (= `map`), with `slam:=true` | ROS node `slam_toolbox` |
 | `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image (rgb8) + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
 | `/camera/depth/image_raw` | sensor_msgs/Image (32FC1, metres, `inf` = no return), 15 Hz, same frame and intrinsics as the colour image | Gazebo → ROS |
 | `/clock` | rosgraph_msgs/Clock | Gazebo → ROS |
@@ -207,6 +209,20 @@ Choices that came from the tests:
 - **Low yaw process noise in `ekf_global`.** With the default value, a 20 cm
   position correction became a 10° heading step, which stayed.
 
+## Mapping (`config/slam.yaml`, Phase 5)
+
+`slam:=true` starts `slam_toolbox`. `map_test.py` drives every path of the orchard
+and saves the map; the one kept in `maps/olive_orchard.{pgm,yaml}` comes from it.
+
+- **The EKF keeps `map` → `odom`.** `slam_toolbox` publishes no transform and takes
+  the EKF pose as its odometry, so the map has the same axes as the world.
+- **Scan matching and loop closing are off.** RTK gives the pose to 2 cm; with them
+  on, the far trees ended up more than a metre from their true positions.
+- **`/scan` keeps only what stands on the ground.** `cloud_to_scan.py` levels the
+  cloud with the IMU roll and pitch, then keeps the cells with a height spread above
+  20 cm. Before this, 85% of the occupied cells in the orchard were ground hits.
+- **Rocks are mostly not on the map.** `/scan` starts about 22 cm above the ground.
+
 ## Olive orchard world (`worlds/olive_orchard.sdf`)
 
 | Feature | Value |
@@ -239,6 +255,16 @@ The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PAT
 
 Tests run headless on sim time and are measured against Gazebo's ground-truth
 pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
+
+### Phase 5, map: `map_test.py` (orchard), **9/9 passed** (2026-10-31)
+
+| Check | Result |
+|---|---|
+| route | every path, 294 s of sim time, closest trunk 2.12 m |
+| trees on the map | 31/31 |
+| tree position | mean error 5.6 cm, max 12.6 cm |
+| false obstacles in the orchard | 0 of 1160 occupied cells |
+| orchard covered | 100.0% |
 
 ### Phase 4, sensor fusion: `ekf_test.py` (orchard), **10/10 passed** (2026-10-31)
 
