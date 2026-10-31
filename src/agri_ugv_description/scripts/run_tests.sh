@@ -9,6 +9,8 @@
 # Suites:  motion  -> motion_test.py  in empty_flat     (Phase 1, robot driving)
 #          orchard -> orchard_test.py in olive_orchard  (Phase 2, orchard driving)
 #          sensor  -> sensor_test.py  in olive_orchard  (Phase 3 + Tasks 1-2, sensors)
+#          rtk     -> rtk_test.py     in olive_orchard  (Task 3, RTK GPS)
+#          ekf     -> ekf_test.py     in olive_orchard  (Phase 4, sensor fusion)
 #
 # The tests use their own ROS domain and Gazebo partition, so a simulation you
 # have open at the same time is not disturbed (and does not disturb the tests).
@@ -17,15 +19,15 @@
 
 set -u
 SUITES=("$@")
-[ ${#SUITES[@]} -eq 0 ] && SUITES=(motion orchard sensor rtk)
+[ ${#SUITES[@]} -eq 0 ] && SUITES=(motion orchard sensor rtk ekf)
 
 export ROS_DOMAIN_ID=${AGRI_TEST_DOMAIN:-87}
 export GZ_PARTITION=agri_ugv_tests_$$
 LOGDIR=~/.ros/agri_ugv_tests/$(date +%Y-%m-%d_%H-%M-%S)
 mkdir -p "$LOGDIR"
 
-declare -A WORLD=([motion]=empty_flat [orchard]=olive_orchard [sensor]=olive_orchard [rtk]=olive_orchard)
-declare -A TEST=([motion]=motion_test.py [orchard]=orchard_test.py [sensor]=sensor_test.py [rtk]=rtk_test.py)
+declare -A WORLD=([motion]=empty_flat [orchard]=olive_orchard [sensor]=olive_orchard [rtk]=olive_orchard [ekf]=olive_orchard)
+declare -A TEST=([motion]=motion_test.py [orchard]=orchard_test.py [sensor]=sensor_test.py [rtk]=rtk_test.py [ekf]=ekf_test.py)
 
 stop_sim() {
     kill -INT -- -"$1" 2>/dev/null
@@ -37,7 +39,7 @@ SUMMARY=()
 ALL_OK=0
 for s in "${SUITES[@]}"; do
     if [ -z "${WORLD[$s]:-}" ]; then
-        echo "unknown suite '$s' (use: motion, orchard, sensor, rtk)"; exit 2
+        echo "unknown suite '$s' (use: motion, orchard, sensor, rtk, ekf)"; exit 2
     fi
     echo
     echo "================ $s: ${TEST[$s]} in ${WORLD[$s]} ================"

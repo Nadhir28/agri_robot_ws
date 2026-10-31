@@ -27,7 +27,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 # ALL automated tests in one command: starts/stops its own headless
 # simulations (isolated ROS domain, so an open simulation is not disturbed)
-ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor + rtk
+ros2 run agri_ugv_description run_tests.sh                 # motion + orchard + sensor + rtk + ekf
 ros2 run agri_ugv_description run_tests.sh sensor          # just one suite
 
 # Or one test by hand (the simulation for that world must be running)
@@ -35,6 +35,8 @@ ros2 run agri_ugv_description motion_test.py    # flat world, 20 checks
 ros2 run agri_ugv_description orchard_test.py   # orchard world, 11 checks
 ros2 run agri_ugv_description sensor_test.py    # orchard world, 22 sensor checks
 ros2 run agri_ugv_description rtk_test.py       # orchard world, 11 RTK GPS checks
+ros2 run agri_ugv_description ekf_test.py       # orchard world, 10 sensor fusion checks
+ros2 run agri_ugv_description ekf_monitor.py    # live error: wheels alone vs EKF
 
 # Look at the sensors
 ros2 run rqt_image_view rqt_image_view /camera/image_raw        # colour
@@ -127,8 +129,11 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | Topic | Type | Direction |
 |---|---|---|
 | `/cmd_vel` | geometry_msgs/Twist | ROS → Gazebo |
-| `/odom` | nav_msgs/Odometry (wheel odometry, `odom` → `base_footprint`) | Gazebo → ROS |
-| `/tf` | odom → base_footprint | Gazebo → ROS |
+| `/odom` | nav_msgs/Odometry (wheel odometry) | Gazebo → ROS |
+| `/wheel/odom`, `/imu/data` | `/odom` and `/imu` with covariances, inputs of the EKFs | ROS node `sensor_covariance.py` |
+| `/odometry/local` | nav_msgs/Odometry, wheels + IMU, smooth; publishes `odom` → `base_footprint` | ROS node `ekf_local` |
+| `/odometry/global` | nav_msgs/Odometry, wheels + IMU + RTK, frame `map` (same as the world); publishes `map` → `odom`. Orchard world only | ROS node `ekf_global` |
+| `/odometry/gps` | nav_msgs/Odometry, RTK position in `map` | ROS node `navsat_transform` |
 | `/joint_states` | sensor_msgs/JointState (wheels and tyre springs) | Gazebo → ROS |
 | `/ground_truth/odom` | nav_msgs/Odometry (true pose in `world`) | Gazebo → ROS |
 | `/imu` | sensor_msgs/Imu, 100 Hz, frame `imu_link` | Gazebo → ROS |
@@ -136,6 +141,7 @@ idea as the Husky driver's `wheel_separation_multiplier`.
 | `/gps/raw` | sensor_msgs/NavSatFix, 10 Hz, standalone GPS (~1.5 m error), status FIX | ROS node `rtk_gnss.py` |
 | `/rtk_base/corrections` | geometry_msgs/Vector3Stamped, 1 Hz, correction in metres (x east, y north, z up) | ROS node `rtk_gnss.py` |
 | `/gps/fix` | sensor_msgs/NavSatFix, 10 Hz, frame `gps_link`, RTK position (~2 cm), status GBAS_FIX (2) | ROS node `rtk_gnss.py` |
+| `/gps/rtk` | `/gps/fix` only while it is RTK, input of the EKF | ROS node `rtk_gnss.py` |
 | `/points` | sensor_msgs/PointCloud2, 3D LiDAR, 16 × 900 points, 10 Hz, frame `lidar_link` | Gazebo → ROS |
 | `/scan` | sensor_msgs/LaserScan, 10 Hz, frame `lidar_link`, derived from `/points` by `cloud_to_scan.py` | ROS node |
 | `/camera/image_raw`, `/camera/camera_info` | sensor_msgs/Image (rgb8) + CameraInfo, 15 Hz, frame `camera_optical_frame` | Gazebo → ROS |
@@ -182,6 +188,25 @@ The sensor links have no mass, so the robot is still 80 kg.
 Example output from the orchard (robot 6 m into the path between rows 2 and 3):
 `docs/phase3_camera_view.png` and `docs/phase3_lidar_scan.png`.
 
+## Localization (`config/ekf.yaml`, Phase 4)
+
+Two EKFs from `robot_localization`, the usual setup for a robot with GPS:
+
+- `ekf_local` (wheels + IMU) gives a smooth pose that drifts: `odom` → `base_footprint`.
+- `ekf_global` adds RTK through `navsat_transform`: `map` → `odom`. The `map` frame
+  is the world frame (datum = world origin), and it starts from the spawn pose.
+
+Choices that came from the tests:
+
+- **Wheel yaw rate is not fused.** Wheels slip in a turn on the spot: they
+  reported +131° for a true +90°.
+- **Absolute IMU yaw is not fused.** Gazebo returns the true heading; a real
+  6-axis IMU has none. The heading comes from the gyro.
+- **Only RTK fixes are fused** (`/gps/rtk`). The standalone position is metres off:
+  fusing it at start-up left a 61° heading error.
+- **Low yaw process noise in `ekf_global`.** With the default value, a 20 cm
+  position correction became a 10° heading step, which stayed.
+
 ## Olive orchard world (`worlds/olive_orchard.sdf`)
 
 | Feature | Value |
@@ -214,6 +239,22 @@ The launch file adds `share/agri_ugv_description/models` to `GZ_SIM_RESOURCE_PAT
 
 Tests run headless on sim time and are measured against Gazebo's ground-truth
 pose. The real-time factor was 0.6–0.9, which doesn't affect sim-time results.
+
+### Phase 4, sensor fusion: `ekf_test.py` (orchard), **10/10 passed** (2026-10-31)
+
+| Check | Result |
+|---|---|
+| at rest | position 1.7 cm, heading 0.05° |
+| driving 7 m | RMS 1.8 cm, max 4.7 cm, heading max 0.17° |
+| local estimate smooth | largest step 2.0 cm |
+| turn +90° | true +89.5°, wheels +130.8°, EKF heading error max 0.58° |
+| turn −90° | true −91.2°, wheels −115.0°, EKF heading error max 0.39° |
+| after 7.1 m and two turns | EKF 0.5 cm, wheels alone 29 cm |
+| 20 s driving without RTK | position error max 2.3 cm, heading max 0.13° |
+| RTK back | position 1.3 cm, heading 0.18° |
+
+The gyro has no bias in simulation, so the 20 s without RTK is a best case.
+The trace is written to `~/.ros/agri_ugv_tests/ekf_trace.csv`.
 
 ### Task 3, RTK GPS: `rtk_test.py` (orchard), **11/11 passed** (2026-10-29)
 

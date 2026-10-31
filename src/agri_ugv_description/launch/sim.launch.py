@@ -22,6 +22,7 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 PKG = get_package_share_directory('agri_ugv_description')
+EKF_CONFIG = os.path.join(PKG, 'config', 'ekf.yaml')
 
 # Named worlds and their default (collision-free) spawn poses: x, y, z, yaw.
 # olive_orchard: headland at the entrance of the path between rows 2 and 3,
@@ -65,6 +66,33 @@ def _gazebo_and_spawn(context):
             executable='create',
             arguments=['-topic', 'robot_description', '-name', 'agri_ugv',
                        '-x', pose[0], '-y', pose[1], '-z', pose[2], '-Y', pose[3]],
+            output='screen',
+        ),
+    ] + (_global_localization(pose) if world_arg == 'olive_orchard' else [])
+
+
+def _global_localization(pose):
+    """RTK-corrected EKF, map -> odom. It starts from the spawn pose: the map
+    frame is the world frame and a single antenna gives no heading at rest."""
+    initial = [0.0] * 15
+    initial[0], initial[1], initial[5] = float(pose[0]), float(pose[1]), float(pose[3])
+    return [
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_global',
+            parameters=[EKF_CONFIG, {'use_sim_time': True, 'initial_state': initial}],
+            remappings=[('odometry/filtered', '/odometry/global')],
+            output='screen',
+        ),
+        Node(
+            package='robot_localization',
+            executable='navsat_transform_node',
+            name='navsat_transform',
+            parameters=[EKF_CONFIG, {'use_sim_time': True}],
+            remappings=[('imu', '/imu/data'), ('gps/fix', '/gps/rtk'),
+                        ('odometry/filtered', '/odometry/global'),
+                        ('odometry/gps', '/odometry/gps')],
             output='screen',
         ),
     ]
@@ -124,6 +152,23 @@ def generate_launch_description():
             package='agri_ugv_description',
             executable='rtk_gnss.py',
             parameters=[{'use_sim_time': True}],
+            output='screen',
+        ),
+
+        # Sensor fusion (config/ekf.yaml): odom -> base_footprint. In olive_orchard
+        # _global_localization() adds the RTK-corrected EKF, map -> odom.
+        Node(
+            package='agri_ugv_description',
+            executable='sensor_covariance.py',
+            parameters=[{'use_sim_time': True}],
+            output='screen',
+        ),
+        Node(
+            package='robot_localization',
+            executable='ekf_node',
+            name='ekf_local',
+            parameters=[EKF_CONFIG, {'use_sim_time': True}],
+            remappings=[('odometry/filtered', '/odometry/local')],
             output='screen',
         ),
 

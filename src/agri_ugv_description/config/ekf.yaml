@@ -1,0 +1,93 @@
+# Sensor fusion with robot_localization: two EKFs and navsat_transform.
+#
+#   ekf_local    wheels + IMU         -> odom -> base_footprint   smooth, drifts
+#   ekf_global   wheels + IMU + RTK   -> map  -> odom             accurate, may jump
+#   navsat       RTK fix (/gps/rtk) -> /odometry/gps, position in the map frame
+#
+# The map frame has the same origin and axes as the Gazebo world: its datum is
+# the world origin (spherical_coordinates in the world file).
+#
+# *_config order:  x y z | roll pitch yaw | vx vy vz | vroll vpitch vyaw | ax ay az
+#
+# What is fused, and what is left out on purpose:
+#  - wheels give the body velocity only. Their yaw rate is not used: wheels slip
+#    when a skid-steer turns on the spot, so they report turns that did not happen.
+#  - the IMU gives roll, pitch and the three angular rates. Its absolute yaw is
+#    not used: Gazebo returns the true heading, a real 6-axis IMU has none.
+#    Accelerations are not used: on rough ground they are mostly vibration.
+#  - the heading comes from the gyro, corrected by RTK while the robot moves.
+#  - without RTK the global EKF keeps going on wheels and gyro alone.
+
+ekf_local:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: false              # the ground is not flat
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    odom0: /wheel/odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  true,
+                   false, false, false,
+                   false, false, false]
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  true,  true,  false,
+                  false, false, false,
+                  true,  true,  true,
+                  false, false, false]
+
+ekf_global:
+  ros__parameters:
+    frequency: 30.0
+    sensor_timeout: 0.2
+    two_d_mode: false
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: map
+
+    odom0: /wheel/odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  true,
+                   false, false, false,
+                   false, false, false]
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  true,  true,  false,
+                  false, false, false,
+                  true,  true,  true,
+                  false, false, false]
+    # Default diagonal, except yaw (0.06 -> 0.0001). The gyro keeps the heading
+    # to about a degree, so a position correction must not turn into a heading
+    # step: with the default, a 20 cm RTK correction bent the heading by 10 deg
+    process_noise_covariance: [0.05, 0.05, 0.06, 0.03, 0.03, 0.0001,
+                               0.025, 0.025, 0.04, 0.01, 0.01, 0.02,
+                               0.01, 0.01, 0.015]
+    odom1: /odometry/gps
+    odom1_config: [true,  true,  false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+
+navsat_transform:
+  ros__parameters:
+    frequency: 30.0
+    delay: 1.0
+    magnetic_declination_radians: 0.0
+    yaw_offset: 0.0
+    zero_altitude: true
+    use_odometry_yaw: true         # antenna offset rotated with the EKF heading
+    use_local_cartesian: true      # no UTM grid: x east, y north like the world
+    broadcast_cartesian_transform: false
+    publish_filtered_gps: false
+    wait_for_datum: true
+    datum: [34.74, 10.76, 0.0]     # world origin: latitude, longitude, yaw

@@ -19,6 +19,9 @@ Topics:
   out  /gps/fix            RTK position (~2 cm), status GBAS_FIX; falls back to
                            the standalone position (status FIX) when RTK is off
                            or the corrections are older than max_correction_age
+  out  /gps/rtk            /gps/fix, only while it is RTK. The EKF uses this one:
+                           the standalone position is metres off, and fusing it
+                           would drag the estimate away and bend the heading
 
 Runtime switch (demo):  ros2 param set /rtk_gnss rtk_enabled false
 """
@@ -85,6 +88,7 @@ class RtkGnss(Node):
 
         self.raw_pub = self.create_publisher(NavSatFix, '/gps/raw', qos_profile_sensor_data)
         self.fix_pub = self.create_publisher(NavSatFix, '/gps/fix', qos_profile_sensor_data)
+        self.rtk_pub = self.create_publisher(NavSatFix, '/gps/rtk', qos_profile_sensor_data)
         self.corr_pub = self.create_publisher(Vector3Stamped, '/rtk_base/corrections', 10)
         self.create_subscription(NavSatFix, '/rtk_base/navsat', self.on_base, qos_profile_sensor_data)
         self.create_subscription(NavSatFix, '/gps/navsat', self.on_robot, qos_profile_sensor_data)
@@ -152,6 +156,7 @@ class RtkGnss(Node):
         fix.position_covariance = [0.02 ** 2, 0.0, 0.0, 0.0, 0.02 ** 2, 0.0, 0.0, 0.0, 0.04 ** 2]
         fix.position_covariance_type = NavSatFix.COVARIANCE_TYPE_APPROXIMATED
         self.fix_pub.publish(fix)
+        self.rtk_pub.publish(fix)
 
 
 def main():

@@ -8,7 +8,7 @@
 
   Frames:  imu_link, gps_link, lidar_link, camera_link (x forward),
            camera_optical_frame (z forward, x right: ROS optical convention).
-  Topics:  /imu, /gps/navsat (-> rtk_gnss.py -> /gps/fix), /points (3D LiDAR), /scan (derived 2D),
+  Topics:  /imu, /gps/navsat (-> rtk_gnss.py -> /gps/fix, /gps/rtk), /points (3D LiDAR), /scan (derived 2D),
            /camera/image_raw, /camera/depth/image_raw, /camera/camera_info
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
